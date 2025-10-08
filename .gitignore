@@ -1,0 +1,21 @@
+# C++ build artifacts
+*.o
+*.obj
+*.exe
+*.dll
+*.so
+*.a
+*.lib
+*.out
+*.app
+
+# Build directories
+build/
+bin/
+
+# VS Code specific
+.vscode/
+
+# Other
+*.log
+*.tmp
