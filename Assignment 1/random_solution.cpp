@@ -1,44 +1,22 @@
-#include <iostream>
-#include <fstream>
-#include <sstream>
+#include "assignment1.h"
 #include <vector>
-#include <string>
+#include <numeric>
+#include <algorithm>
+#include <random>
+#include <cmath>
 
-int main() {
-    std::ifstream file("TSPA.csv");  // Open your CSV file
-    if (!file.is_open()) {
-        std::cerr << "Error: could not open file\n";
-        return 1;
-    }
+std::vector<int> generate_random_solution(const std::vector<PointData>& data) {
+    int num_nodes = data.size();
+    int num_to_select = static_cast<int>(std::ceil(num_nodes / 2.0));
 
-    std::vector<std::vector<int>> data;
-    std::string line;
+    std::vector<int> node_indices(num_nodes);
+    std::iota(node_indices.begin(), node_indices.end(), 0);
 
-    while (std::getline(file, line)) {
-        std::vector<int> row;
-        std::stringstream ss(line);
-        std::string value;
+    std::random_device rd;
+    std::mt19937 g(rd());
+    std::shuffle(node_indices.begin(), node_indices.end(), g);
 
-        while (std::getline(ss, value, ';')) {  // Use ';' as separator
-            try {
-                row.push_back(std::stoi(value));
-            } catch (...) {
-                std::cerr << "Invalid number: " << value << "\n";
-            }
-        }
+    std::vector<int> solution_path(node_indices.begin(), node_indices.begin() + num_to_select);
 
-        if (!row.empty())
-            data.push_back(row);
-    }
-
-    file.close();
-
-    // ✅ Print out the loaded data
-    for (const auto& row : data) {
-        for (const auto& num : row)
-            std::cout << num << "\t";
-        std::cout << "\n";
-    }
-
-    return 0;
+    return solution_path;
 }
