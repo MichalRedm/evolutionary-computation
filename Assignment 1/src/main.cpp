@@ -6,7 +6,7 @@
 #include "assignment1.h"
 
 int main() {
-    std::ifstream file("TSPA.csv");  // Open your CSV file
+    std::ifstream file("data/TSPA.csv");  // Open your CSV file
     if (!file.is_open()) {
         std::cerr << "Error: could not open file\n";
         return 1;
