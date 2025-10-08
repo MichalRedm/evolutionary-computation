@@ -11,5 +11,8 @@ struct PointData {
 };
 
 std::vector<int> generate_random_solution(const std::vector<PointData>& data);
+std::vector<int> generate_nearest_neighbor_end_solution(const std::vector<PointData>& data);
+std::vector<int> generate_nearest_neighbor_all_positions_solution(const std::vector<PointData>& data);
+std::vector<int> generate_greedy_cycle_solution(const std::vector<PointData>& data);
 
 #endif // ASSIGNMENT1_H
