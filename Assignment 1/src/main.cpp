@@ -5,59 +5,44 @@
 #include <string>
 #include <limits>
 #include <numeric>
+#include <functional>
 #include "evaluation.h"
 #include "random_solution.h"
 #include "nearest_neighbor_end.h"
 #include "nearest_neighbor_all_positions.h"
 #include "greedy_cycle.h"
+#include "point_data.h"
 
-// Function to process a single instance of the problem
-void process_instance(const std::string& filename) {
-    std::cout << "=================================================" << std::endl;
-    std::cout << "Processing instance: " << filename << std::endl;
-    std::cout << "=================================================" << std::endl;
-
-    std::ifstream file(filename);  // Open your CSV file
+// Helper function to load data from a CSV file
+bool load_data(const std::string& filename, std::vector<PointData>& data) {
+    std::ifstream file(filename);
     if (!file.is_open()) {
         std::cerr << "Error: could not open file " << filename << "\n";
-        return;
+        return false;
     }
 
-    std::vector<PointData> data;
+    data.clear();
     std::string line;
-    int current_id = 0; 
+    int current_id = 0;
 
     while (std::getline(file, line)) {
         std::stringstream ss(line);
         std::string value;
-        int temp_x, temp_y, temp_cost;
-        int count = 0;
+        std::vector<int> values;
         bool error = false;
 
-        while (std::getline(ss, value, ';')) {  // Use ';' as separator
+        while (std::getline(ss, value, ';')) {
             try {
-                int num = std::stoi(value);
-                if (count == 0) {
-                    temp_x = num;
-                } else if (count == 1) {
-                    temp_y = num;
-                } else if (count == 2) {
-                    temp_cost = num;
-                }
-                count++;
+                values.push_back(std::stoi(value));
             } catch (...) {
                 error = true;
-                break; // Stop processing this row on error
+                break;
             }
         }
 
-        // Check if exactly 3 values were read and no error occurred
-        if (!error && count == 3) {
-            // Create a PointData struct and populate it, assigning the current ID
-            data.push_back({current_id, temp_x, temp_y, temp_cost});
-            
-            // Increment the ID counter for the next successful row
-            current_id++; 
+        if (!error && values.size() == 3) {
+            data.push_back({current_id, values[0], values[1], values[2]});
+            current_id++;
         }
     }
 
@@ -65,139 +50,109 @@ void process_instance(const std::string& filename) {
 
     if (data.empty()) {
         std::cerr << "Error: No data loaded from " << filename << std::endl;
+        return false;
+    }
+    return true;
+}
+
+// Helper function to run a solution generation method and print results
+void run_and_print_results(
+    const std::string& method_name,
+    const std::vector<PointData>& data,
+    const std::vector<std::vector<int>>& distance_matrix,
+    int num_runs,
+    const std::function<std::vector<int>(int)>& generate_solution
+) {
+    std::cout << "\n--- Method: " << method_name << " ---" << std::endl;
+    double min_score = std::numeric_limits<double>::max();
+    double max_score = std::numeric_limits<double>::min();
+    double sum_score = 0.0;
+    std::vector<int> best_solution;
+    int solutions_count = 0;
+
+    for (int i = 0; i < num_runs; ++i) {
+        std::vector<int> solution = generate_solution(i);
+        if (solution.empty()) {
+            continue;
+        }
+        solutions_count++;
+        double score = evaluate_solution(solution, data, distance_matrix);
+        if (score < min_score) {
+            min_score = score;
+            best_solution = solution;
+        }
+        if (score > max_score) {
+            max_score = score;
+        }
+        sum_score += score;
+    }
+
+    if (solutions_count == 0) {
+        std::cout << "No solutions were generated for this method." << std::endl;
         return;
     }
 
-    // Calculate the distance matrix once
+    std::cout << "Min value: " << min_score << std::endl;
+    std::cout << "Max value: " << max_score << std::endl;
+    std::cout << "Avg value: " << sum_score / solutions_count << std::endl;
+    std::cout << "Best solution: ";
+    for (int id : best_solution) {
+        std::cout << id << " ";
+    }
+    std::cout << std::endl;
+}
+
+// Function to process a single instance of the problem
+void process_instance(const std::string& filename) {
+    std::cout << "=================================================" << std::endl;
+    std::cout << "Processing instance: " << filename << std::endl;
+    std::cout << "=================================================" << std::endl;
+
+    std::vector<PointData> data;
+    if (!load_data(filename, data)) {
+        return;
+    }
+
     auto distance_matrix = calculate_distance_matrix(data);
     const int num_nodes = data.size();
     const int num_runs = 200;
 
     // --- 1. Random Method ---
-    std::cout << "\n--- Method: Random ---" << std::endl;
-    double min_random = std::numeric_limits<double>::max();
-    double max_random = std::numeric_limits<double>::min();
-    double sum_random = 0.0;
-    std::vector<int> best_random_solution;
-
-    for (int i = 0; i < num_runs; ++i) {
-        std::vector<int> solution = generate_random_solution(data);
-        double score = evaluate_solution(solution, data, distance_matrix);
-        if (score < min_random) {
-            min_random = score;
-            best_random_solution = solution;
+    run_and_print_results("Random", data, distance_matrix, num_runs,
+        [&](int i) {
+            return generate_random_solution(data);
         }
-        if (score > max_random) {
-            max_random = score;
-        }
-        sum_random += score;
-    }
-
-    std::cout << "Min value: " << min_random << std::endl;
-    std::cout << "Max value: " << max_random << std::endl;
-    std::cout << "Avg value: " << sum_random / num_runs << std::endl;
-    std::cout << "Best solution: ";
-    for (int id : best_random_solution) {
-        std::cout << id << " ";
-    }
-    std::cout << std::endl;
+    );
 
     /*
     // --- 2. Nearest Neighbor (End) Method ---
-    std::cout << "\n--- Method: Nearest Neighbor (End) ---" << std::endl;
-    double min_nn_end = std::numeric_limits<double>::max();
-    double max_nn_end = std::numeric_limits<double>::min();
-    double sum_nn_end = 0.0;
-    std::vector<int> best_nn_end_solution;
-
-    for (int i = 0; i < num_runs; ++i) {
-        int start_node_id = i % num_nodes;
-        // The function would need to be modified to accept a starting node
-        // std::vector<int> solution = generate_nearest_neighbor_end_solution(data, distance_matrix, start_node_id);
-        // double score = evaluate_solution(solution, data, distance_matrix);
-        // if (score < min_nn_end) {
-        //     min_nn_end = score;
-        //     best_nn_end_solution = solution;
-        // }
-        // if (score > max_nn_end) {
-        //     max_nn_end = score;
-        // }
-        // sum_nn_end += score;
-    }
-
-    // std::cout << "Min value: " << min_nn_end << std::endl;
-    // std::cout << "Max value: " << max_nn_end << std::endl;
-    // std::cout << "Avg value: " << sum_nn_end / num_runs << std::endl;
-    // std::cout << "Best solution: ";
-    // for (int id : best_nn_end_solution) {
-    //     std::cout << id << " ";
-    // }
-    // std::cout << std::endl;
+    run_and_print_results("Nearest Neighbor (End)", data, distance_matrix, num_runs,
+        [&](int i) -> std::vector<int> {
+            int start_node_id = i % num_nodes;
+            // return generate_nearest_neighbor_end_solution(data, distance_matrix, start_node_id);
+            return {}; // Return empty vector as a placeholder
+        }
+    );
     */
 
     /*
     // --- 3. Nearest Neighbor (All Positions) Method ---
-    std::cout << "\n--- Method: Nearest Neighbor (All Positions) ---" << std::endl;
-    double min_nn_all = std::numeric_limits<double>::max();
-    double max_nn_all = std::numeric_limits<double>::min();
-    double sum_nn_all = 0.0;
-    std::vector<int> best_nn_all_solution;
-
-    for (int i = 0; i < num_runs; ++i) {
-        int start_node_id = i % num_nodes;
-        // The function would need to be modified to accept a starting node
-        // std::vector<int> solution = generate_nearest_neighbor_all_positions_solution(data, distance_matrix, start_node_id);
-        // double score = evaluate_solution(solution, data, distance_matrix);
-        // if (score < min_nn_all) {
-        //     min_nn_all = score;
-        //     best_nn_all_solution = solution;
-        // }
-        // if (score > max_nn_all) {
-        //     max_nn_all = score;
-        // }
-        // sum_nn_all += score;
-    }
-
-    // std::cout << "Min value: " << min_nn_all << std::endl;
-    // std::cout << "Max value: " << max_nn_all << std::endl;
-    // std::cout << "Avg value: " << sum_nn_all / num_runs << std::endl;
-    // std::cout << "Best solution: ";
-    // for (int id : best_nn_all_solution) {
-    //     std::cout << id << " ";
-    // }
-    // std::cout << std::endl;
+    run_and_print_results("Nearest Neighbor (All Positions)", data, distance_matrix, num_runs,
+        [&](int i) -> std::vector<int> {
+            int start_node_id = i % num_nodes;
+            // return generate_nearest_neighbor_all_positions_solution(data, distance_matrix, start_node_id);
+            return {}; // Return empty vector as a placeholder
+        }
+    );
     */
 
     // --- 4. Greedy Cycle Method ---
-    std::cout << "\n--- Method: Greedy Cycle ---" << std::endl;
-    double min_greedy = std::numeric_limits<double>::max();
-    double max_greedy = std::numeric_limits<double>::min();
-    double sum_greedy = 0.0;
-    std::vector<int> best_greedy_solution;
-
-    for (int i = 0; i < num_runs; ++i) {
-        int start_node_id = i % num_nodes;
-        // The function would need to be modified to accept a starting node
-        std::vector<int> solution = generate_greedy_cycle_solution(data, distance_matrix, start_node_id);
-        double score = evaluate_solution(solution, data, distance_matrix);
-        if (score < min_greedy) {
-            min_greedy = score;
-            best_greedy_solution = solution;
+    run_and_print_results("Greedy Cycle", data, distance_matrix, num_runs,
+        [&](int i) {
+            int start_node_id = i % num_nodes;
+            return generate_greedy_cycle_solution(data, distance_matrix, start_node_id);
         }
-        if (score > max_greedy) {
-            max_greedy = score;
-        }
-        sum_greedy += score;
-    }
-
-    std::cout << "Min value: " << min_greedy << std::endl;
-    std::cout << "Max value: " << max_greedy << std::endl;
-    std::cout << "Avg value: " << sum_greedy / num_runs << std::endl;
-    std::cout << "Best solution: ";
-    for (int id : best_greedy_solution) {
-        std::cout << id << " ";
-    }
-    std::cout << std::endl;
+    );
 }
 
 int main() {
