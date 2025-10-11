@@ -124,28 +124,22 @@ void process_instance(const std::string& filename) {
         }
     );
 
-    /*
     // --- 2. Nearest Neighbor (End) Method ---
     run_and_print_results("Nearest Neighbor (End)", data, distance_matrix, num_runs,
         [&](int i) -> std::vector<int> {
             int start_node_id = i % num_nodes;
-            // return generate_nearest_neighbor_end_solution(data, distance_matrix, start_node_id);
-            return {}; // Return empty vector as a placeholder
+            return generate_nearest_neighbor_end_solution(data, distance_matrix, start_node_id);
         }
     );
-    */
 
-    /*
     // --- 3. Nearest Neighbor (All Positions) Method ---
     run_and_print_results("Nearest Neighbor (All Positions)", data, distance_matrix, num_runs,
         [&](int i) -> std::vector<int> {
             int start_node_id = i % num_nodes;
-            // return generate_nearest_neighbor_all_positions_solution(data, distance_matrix, start_node_id);
-            return {}; // Return empty vector as a placeholder
+            return generate_nearest_neighbor_all_positions_solution(data, distance_matrix, start_node_id);
         }
     );
-    */
-
+    
     // --- 4. Greedy Cycle Method ---
     run_and_print_results("Greedy Cycle", data, distance_matrix, num_runs,
         [&](int i) {
