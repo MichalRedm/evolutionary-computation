@@ -168,7 +168,6 @@ void process_instance(const std::string& filename) {
     // std::cout << std::endl;
     */
 
-    /*
     // --- 4. Greedy Cycle Method ---
     std::cout << "\n--- Method: Greedy Cycle ---" << std::endl;
     double min_greedy = std::numeric_limits<double>::max();
@@ -179,27 +178,26 @@ void process_instance(const std::string& filename) {
     for (int i = 0; i < num_runs; ++i) {
         int start_node_id = i % num_nodes;
         // The function would need to be modified to accept a starting node
-        // std::vector<int> solution = generate_greedy_cycle_solution(data, distance_matrix, start_node_id);
-        // double score = evaluate_solution(solution, data, distance_matrix);
-        // if (score < min_greedy) {
-        //     min_greedy = score;
-        //     best_greedy_solution = solution;
-        // }
-        // if (score > max_greedy) {
-        //     max_greedy = score;
-        // }
-        // sum_greedy += score;
+        std::vector<int> solution = generate_greedy_cycle_solution(data, distance_matrix, start_node_id);
+        double score = evaluate_solution(solution, data, distance_matrix);
+        if (score < min_greedy) {
+            min_greedy = score;
+            best_greedy_solution = solution;
+        }
+        if (score > max_greedy) {
+            max_greedy = score;
+        }
+        sum_greedy += score;
     }
 
-    // std::cout << "Min value: " << min_greedy << std::endl;
-    // std::cout << "Max value: " << max_greedy << std::endl;
-    // std::cout << "Avg value: " << sum_greedy / num_runs << std::endl;
-    // std::cout << "Best solution: ";
-    // for (int id : best_greedy_solution) {
-    //     std::cout << id << " ";
-    // }
-    // std::cout << std::endl;
-    */
+    std::cout << "Min value: " << min_greedy << std::endl;
+    std::cout << "Max value: " << max_greedy << std::endl;
+    std::cout << "Avg value: " << sum_greedy / num_runs << std::endl;
+    std::cout << "Best solution: ";
+    for (int id : best_greedy_solution) {
+        std::cout << id << " ";
+    }
+    std::cout << std::endl;
 }
 
 int main() {
