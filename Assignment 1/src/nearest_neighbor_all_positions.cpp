@@ -1,4 +1,4 @@
-#include "assignment1.h"
+#include "nearest_neighbor_all_positions.h"
 #include <vector>
 
 // Placeholder implementation

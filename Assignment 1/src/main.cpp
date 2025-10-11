@@ -5,8 +5,11 @@
 #include <string>
 #include <limits>
 #include <numeric>
-#include "assignment1.h"
 #include "evaluation.h"
+#include "random_solution.h"
+#include "nearest_neighbor_end.h"
+#include "nearest_neighbor_all_positions.h"
+#include "greedy_cycle.h"
 
 // Function to process a single instance of the problem
 void process_instance(const std::string& filename) {

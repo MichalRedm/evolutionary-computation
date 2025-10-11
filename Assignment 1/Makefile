@@ -18,6 +18,9 @@ BUILD_DIR = build
 # Find all .cpp files in the source directory
 SRCS = $(wildcard $(SRC_DIR)/*.cpp)
 
+# Find all .h files in the source directory for dependency tracking
+DEPS = $(wildcard $(SRC_DIR)/*.h)
+
 # Generate object file names in the build directory
 OBJS = $(patsubst $(SRC_DIR)/%.cpp,$(BUILD_DIR)/%.o,$(SRCS))
 
@@ -39,7 +42,7 @@ $(TARGET): $(OBJS)
 
 # Rule to compile source files into object files
 # This creates the build directory if it doesn't exist
-$(BUILD_DIR)/%.o: $(SRC_DIR)/%.cpp | $(BUILD_DIR)
+$(BUILD_DIR)/%.o: $(SRC_DIR)/%.cpp $(DEPS) | $(BUILD_DIR)
 	@echo "Compiling $<..."
 	$(CXX) $(CXXFLAGS) -c $< -o $@
 
