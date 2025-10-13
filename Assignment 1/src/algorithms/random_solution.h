@@ -2,7 +2,7 @@
 #define RANDOM_SOLUTION_H
 
 #include <vector>
-#include "point_data.h"
+#include "../core/point_data.h"
 
 std::vector<int> generate_random_solution(const std::vector<PointData>& data);
 

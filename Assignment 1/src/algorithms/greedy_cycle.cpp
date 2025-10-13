@@ -1,5 +1,5 @@
 #include "greedy_cycle.h"
-#include "point_data.h"
+
 #include <vector>
 #include <cmath>
 #include <algorithm>

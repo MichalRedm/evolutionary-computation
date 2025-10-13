@@ -1,5 +1,5 @@
 #include "nearest_neighbor_all_positions.h"
-#include "point_data.h"
+
 #include <vector>
 #include <cmath>
 #include <algorithm>

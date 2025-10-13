@@ -1,59 +1,16 @@
 #include <iostream>
-#include <fstream>
-#include <sstream>
 #include <vector>
 #include <string>
 #include <limits>
 #include <numeric>
 #include <functional>
-#include "evaluation.h"
-#include "random_solution.h"
-#include "nearest_neighbor_end.h"
-#include "nearest_neighbor_all_positions.h"
-#include "greedy_cycle.h"
-#include "point_data.h"
-
-// Helper function to load data from a CSV file
-bool load_data(const std::string& filename, std::vector<PointData>& data) {
-    std::ifstream file(filename);
-    if (!file.is_open()) {
-        std::cerr << "Error: could not open file " << filename << "\n";
-        return false;
-    }
-
-    data.clear();
-    std::string line;
-    int current_id = 0;
-
-    while (std::getline(file, line)) {
-        std::stringstream ss(line);
-        std::string value;
-        std::vector<int> values;
-        bool error = false;
-
-        while (std::getline(ss, value, ';')) {
-            try {
-                values.push_back(std::stoi(value));
-            } catch (...) {
-                error = true;
-                break;
-            }
-        }
-
-        if (!error && values.size() == 3) {
-            data.push_back({current_id, values[0], values[1], values[2]});
-            current_id++;
-        }
-    }
-
-    file.close();
-
-    if (data.empty()) {
-        std::cerr << "Error: No data loaded from " << filename << std::endl;
-        return false;
-    }
-    return true;
-}
+#include "core/evaluation.h"
+#include "core/data_loader.h"
+#include "algorithms/random_solution.h"
+#include "algorithms/nearest_neighbor_end.h"
+#include "algorithms/nearest_neighbor_all_positions.h"
+#include "algorithms/greedy_cycle.h"
+#include "core/point_data.h"
 
 // Helper function to run a solution generation method and print results
 void run_and_print_results(
@@ -119,7 +76,7 @@ void process_instance(const std::string& filename) {
 
     // --- 1. Random Method ---
     run_and_print_results("Random", data, distance_matrix, num_runs,
-        [&](int i) {
+        [&](int ) {
             return generate_random_solution(data);
         }
     );
