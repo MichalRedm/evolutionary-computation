@@ -150,8 +150,8 @@ void process_instance(const std::string& filename) {
 }
 
 int main() {
-    process_instance("data/TSPA.csv");
-    process_instance("data/TSPB.csv");
+    process_instance("../data/TSPA.csv");
+    process_instance("../data/TSPB.csv");
 
     return 0;
 }
