@@ -5,7 +5,6 @@
 #include <algorithm>
 #include <limits>
 
-
 std::vector<int> generate_nearest_neighbor_end_solution(const std::vector<PointData>& data, const std::vector<std::vector<int>>& distance_matrix, int start_node_id) {
     int total_nodes = data.size();
     int num_to_select = static_cast<int>(ceil(static_cast<double>(total_nodes) / 2.0));
