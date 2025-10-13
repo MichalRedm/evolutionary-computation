@@ -51,42 +51,40 @@ std::vector<int> generate_nearest_neighbor_all_positions_solution(const std::vec
         int best_insertion_idx = -1;
         double min_cost_change = std::numeric_limits<double>::max();
 
-        // Iterate through all unvisited nodes
         for (int k = 0; k < total_nodes; ++k) {
-            if (!visited[k]) {
-                // Iterate through all possible insertion positions in the current cycle
-                for (size_t i = 0; i < solution.size(); ++i) {
-                    int current_node_id = solution[i];
-                    int next_node_id = solution[(i + 1) % solution.size()];
+            if (visited[k]) continue;
 
-                    // Cost change = (dist(i,k) + dist(k,j) - dist(i,j)) + cost(k)
-                    // if we insert at the end we are not taking the edge that would make a cycle into account
-                    double cost_change;
+            for (int i = -1; i < static_cast<int>(solution.size()); ++i) {
+                double cost_change;
 
-                    if (i == solution.size() - 1)
-                    {
-                        cost_change = distance_matrix[current_node_id][k] + data[k].cost;
-                    }
-                    else{
-                        cost_change = distance_matrix[current_node_id][k] + distance_matrix[k][next_node_id] - distance_matrix[current_node_id][next_node_id] + data[k].cost;
-                    }
+                if (i == -1) {
+                    // If we are inserting at the beginning
+                    int next = solution.front();
+                    cost_change = distance_matrix[k][next] + data[k].cost;
+                } 
+                else if (i == static_cast<int>(solution.size()) - 1) {
+                    // If we are inserting at the end
+                    int prev = solution.back();
+                    cost_change = distance_matrix[prev][k] + data[k].cost;
+                } 
+                else {
+                    int prev = solution[i];
+                    int next = solution[i + 1];
+                    cost_change = distance_matrix[prev][k] + distance_matrix[k][next] - distance_matrix[prev][next] + data[k].cost;
+                }
 
-                    if (cost_change < min_cost_change) {
-                        min_cost_change = cost_change;
-                        best_node_to_insert = k;
-                        best_insertion_idx = i + 1;
-                    }
+                if (cost_change < min_cost_change) {
+                    min_cost_change = cost_change;
+                    best_node_to_insert = k;
+                    best_insertion_idx = i + 1;
                 }
             }
         }
 
-        if (best_node_to_insert != -1) {
-            solution.insert(solution.begin() + best_insertion_idx, best_node_to_insert);
-            visited[best_node_to_insert] = true;
-        } else {
-            // No more unvisited nodes to insert
-            break;
-        }
+        if (best_node_to_insert == -1) break;
+
+        solution.insert(solution.begin() + best_insertion_idx, best_node_to_insert);
+        visited[best_node_to_insert] = true;
     }
 
     return solution;
