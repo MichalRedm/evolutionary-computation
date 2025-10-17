@@ -16,7 +16,7 @@ void run_and_print_results(
     const std::vector<PointData>& data,
     const std::vector<std::vector<int>>& distance_matrix,
     int num_runs,
-    const std::function<std::vector<int>(int)>& generate_solution
+    const std::function<std::tuple<std::vector<int>, int>(int)>& generate_solution
 ) {
     std::cout << "\n--- Method: " << method_name << " ---" << std::endl;
     double min_score = std::numeric_limits<double>::max();
@@ -26,12 +26,12 @@ void run_and_print_results(
     int solutions_count = 0;
 
     for (int i = 0; i < num_runs; ++i) {
-        std::vector<int> solution = generate_solution(i);
+        auto [solution, score_int] = generate_solution(i);
+        double score = static_cast<double>(score_int);
         if (solution.empty()) {
             continue;
         }
         solutions_count++;
-        double score = evaluate_solution(solution, data, distance_matrix);
         if (score < min_score) {
             min_score = score;
             best_solution = solution;
@@ -73,20 +73,20 @@ void process_instance(const std::string& filename) {
     const int num_runs = 200;
 
     // --- 1. Greedy 2-Regret Method ---
-    // run_and_print_results("Greedy 2-Regret Method", data, distance_matrix, num_runs,
-    //     [&](int i) -> std::vector<int> {
-    //         int start_node_id = i % num_nodes;
-    //         return generate_greedy_2_regret_solution(data, distance_matrix, start_node_id);
-    //     }
-    // );
+    run_and_print_results("Greedy 2-Regret Method", data, distance_matrix, num_runs,
+        [&](int i) -> std::tuple<std::vector<int>, int> {
+            int start_node_id = i % num_nodes;
+            return generate_greedy_2_regret_solution(data, distance_matrix, start_node_id);
+        }
+    );
 
     // --- 2. Greedy with Weighted Sum Method ---
-    // run_and_print_results("Greedy with Weighted Sum Method", data, distance_matrix, num_runs,
-    //     [&](int i) -> std::vector<int> {
-    //         int start_node_id = i % num_nodes;
-    //         return generate_with_weighted_sum_solution(data, distance_matrix, start_node_id);
-    //     }
-    // );
+    run_and_print_results("Greedy with Weighted Sum Method", data, distance_matrix, num_runs,
+        [&](int i) -> std::tuple<std::vector<int>, int> {
+            int start_node_id = i % num_nodes;
+            return generate_with_weighted_sum_solution(data, distance_matrix, start_node_id);
+        }
+    );
 }
 
 int main() {
