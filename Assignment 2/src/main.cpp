@@ -8,6 +8,8 @@
 #include "core/data_loader.h"
 #include "algorithms/greedy_2_regret.h"
 #include "algorithms/greedy_with_weighted_sum.h"
+#include "algorithms/nearest_neighbour_weighted_sum.h"
+#include "algorithms/nearest_neighbour_2_regret.h"
 #include "core/point_data.h"
 
 // Helper function to run a solution generation method and print results
@@ -85,6 +87,22 @@ void process_instance(const std::string& filename) {
         [&](int i) -> std::vector<int> {
             int start_node_id = i % num_nodes;
             return generate_with_weighted_sum_solution(data, distance_matrix, start_node_id);
+        }
+    );
+
+    // --- 3. Nearest Neighbour 2-Regret Method ---
+    run_and_print_results("Nearest Neighbour 2-Regret Method", data, distance_matrix, num_runs,
+        [&](int i) -> std::vector<int> {
+            int start_node_id = i % num_nodes;
+            return nearest_neighbour_2_regret(data, distance_matrix, start_node_id);
+        }
+    );
+
+    // --- 4. Nearest Neighbour with Weighted Sum Method ---
+    run_and_print_results("Nearest neighbour with Weighted Sum Method", data, distance_matrix, num_runs,
+        [&](int i) -> std::vector<int> {
+            int start_node_id = i % num_nodes;
+            return nearest_neighbour_weighted_sum(data, distance_matrix, start_node_id);
         }
     );
 }

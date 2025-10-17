@@ -1,4 +1,4 @@
-#include "greedy_with_weighted_sum.h"
+#include "nearest_neighbour_weighted_sum.h"
 
 #include <vector>
 #include <cmath>
@@ -7,7 +7,7 @@
 
 #include <iostream>
 
-std::vector<int> generate_with_weighted_sum_solution(const std::vector<PointData>& data, const std::vector<std::vector<int>>& distance_matrix, int start_node_id) {
+std::vector<int> nearest_neighbour_weighted_sum(const std::vector<PointData>& data, const std::vector<std::vector<int>>& distance_matrix, int start_node_id) {
     int total_nodes = data.size();
     int num_to_select = static_cast<int>(ceil(static_cast<double>(total_nodes) / 2.0));
 
@@ -35,12 +35,24 @@ std::vector<int> generate_with_weighted_sum_solution(const std::vector<PointData
                 int current_best_insertion_idx = -1;
 
                 // Find the best and second-best insertion costs for node k
-                for (size_t i = 0; i < solution.size(); ++i) {
-                    int current_node_id = solution[i];
-                    int next_node_id = solution[(i + 1) % solution.size()];
-
-                    // Cost change = (dist(i,k) + dist(k,j) - dist(i,j)) + cost(k)
-                    double cost_change = distance_matrix[current_node_id][k] + distance_matrix[k][next_node_id] - distance_matrix[current_node_id][next_node_id] + data[k].cost;
+                for (int i = -1; i < static_cast<int>(solution.size()); ++i) {
+                    double cost_change;
+                    
+                    if (i == -1) {
+                        // If we are inserting at the beginning
+                        int next = solution.front();
+                        cost_change = distance_matrix[k][next] + data[k].cost;
+                    } 
+                    else if (i == static_cast<int>(solution.size()) - 1) {
+                        // If we are inserting at the end
+                        int prev = solution.back();
+                        cost_change = distance_matrix[prev][k] + data[k].cost;
+                    } 
+                    else {
+                        int prev = solution[i];
+                        int next = solution[i + 1];
+                        cost_change = distance_matrix[prev][k] + distance_matrix[k][next] - distance_matrix[prev][next] + data[k].cost;
+                    }
 
                     if (cost_change < best_cost) {
                         second_best_cost = best_cost;
@@ -66,7 +78,6 @@ std::vector<int> generate_with_weighted_sum_solution(const std::vector<PointData
             solution.insert(solution.begin() + best_insertion_idx, best_node_to_insert);
             visited[best_node_to_insert] = true;
         } else {
-            std::cout << "we are in else" << std::endl;
             // No more unvisited nodes to insert
             break;
         }
