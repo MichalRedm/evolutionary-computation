@@ -81,12 +81,12 @@ void process_instance(const std::string& filename) {
     );
 
     // --- 2. Greedy with Weighted Sum Method ---
-    // run_and_print_results("Greedy with Weighted Sum Method", data, distance_matrix, num_runs,
-    //     [&](int i) -> std::vector<int> {
-    //         int start_node_id = i % num_nodes;
-    //         return generate_with_weighted_sum_solution(data, distance_matrix, start_node_id);
-    //     }
-    // );
+    run_and_print_results("Greedy with Weighted Sum Method", data, distance_matrix, num_runs,
+        [&](int i) -> std::vector<int> {
+            int start_node_id = i % num_nodes;
+            return generate_with_weighted_sum_solution(data, distance_matrix, start_node_id);
+        }
+    );
 }
 
 int main() {
