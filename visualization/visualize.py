@@ -31,7 +31,8 @@ def plot_solution(nodes_df, solution_str, title, output_path):
     # Plot path (closed loop)
     x_coords = sol_nodes['x'].tolist() + [sol_nodes['x'].iloc[0]]
     y_coords = sol_nodes['y'].tolist() + [sol_nodes['y'].iloc[0]]
-    plt.plot(x_coords, y_coords, color='red', linewidth=2, label="Solution path")
+    plt.plot(x_coords, y_coords, color='red',
+             linewidth=2, label="Solution path")
 
     # Annotate node IDs
     for node_id, row in sol_nodes.iterrows():
@@ -45,7 +46,8 @@ def plot_solution(nodes_df, solution_str, title, output_path):
     plt.xlabel("x")
     plt.ylabel("y")
 
-    # Use tight_layout to ensure the plot uses all available space now that the title is gone.
+    # Use tight_layout to ensure the plot uses all available space now
+    # that the title is gone.
     plt.tight_layout()
 
     plt.savefig(output_path)
@@ -54,8 +56,10 @@ def plot_solution(nodes_df, solution_str, title, output_path):
 
 def main():
     parser = argparse.ArgumentParser(description='Visualize TSP solutions.')
-    parser.add_argument('--input', required=True, help='Path to the input JSON file.')
-    parser.add_argument('--output', required=True, help='Directory to save output PNG files.')
+    parser.add_argument('--input', required=True,
+                        help='Path to the input JSON file.')
+    parser.add_argument('--output', required=True,
+                        help='Directory to save output PNG files.')
     args = parser.parse_args()
 
     # Create output directory if it doesn't exist
@@ -66,9 +70,11 @@ def main():
         results = json.load(f)
 
     # Load node data
-    nodes_tspa = pd.read_csv('../data/TSPA.csv', sep=';', header=None, names=['x', 'y', 'cost'])
+    nodes_tspa = pd.read_csv('../data/TSPA.csv', sep=';',
+                             header=None, names=['x', 'y', 'cost'])
     nodes_tspa['id'] = range(0, len(nodes_tspa))
-    nodes_tspb = pd.read_csv('../data/TSPB.csv', sep=';', header=None, names=['x', 'y', 'cost'])
+    nodes_tspb = pd.read_csv('../data/TSPB.csv', sep=';',
+                             header=None, names=['x', 'y', 'cost'])
     nodes_tspb['id'] = range(0, len(nodes_tspb))
 
     data_map = {
@@ -83,10 +89,12 @@ def main():
             file_name = f"{method_name.replace(' ', '_')}_{instance_name}.png"
             output_path = os.path.join(args.output, file_name)
 
-            title = f"Method: {method_name}\nInstance: {instance_name}" 
+            title = f"Method: {method_name}\nInstance: {instance_name}"
 
-            plot_solution(data_map[instance_name], solution, title, output_path)
-            print(f"Generated plot for {method_name} on {instance_name} at {output_path}")
+            plot_solution(data_map[instance_name], solution,
+                          title, output_path)
+            print(f"Generated plot for {method_name} on "
+                  f"{instance_name} at {output_path}")
 
 
 if __name__ == '__main__':
