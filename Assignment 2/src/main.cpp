@@ -5,6 +5,7 @@
 #include <numeric>
 #include <functional>
 #include <fstream>
+#include <algorithm>
 #include "core/evaluation.h"
 #include "core/data_loader.h"
 #include "algorithms/greedy_2_regret.h"
@@ -56,6 +57,14 @@ void run_and_print_results(
     }
 
     double avg_score = sum_score / solutions_count;
+
+    // Normalize the best solution to start with node 0
+    if (!best_solution.empty()) {
+        auto it = std::find(best_solution.begin(), best_solution.end(), 0);
+        if (it != best_solution.end()) {
+            std::rotate(best_solution.begin(), it, best_solution.end());
+        }
+    }
 
     std::cout << "Min value: " << min_score << std::endl;
     std::cout << "Max value: " << max_score << std::endl;
