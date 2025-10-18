@@ -4,6 +4,7 @@
 #include <limits>
 #include <numeric>
 #include <functional>
+#include <fstream>
 #include "core/evaluation.h"
 #include "core/data_loader.h"
 #include "algorithms/greedy_2_regret.h"
@@ -11,6 +12,9 @@
 #include "algorithms/nearest_neighbour_weighted_sum.h"
 #include "algorithms/nearest_neighbour_2_regret.h"
 #include "core/point_data.h"
+#include "core/json.hpp"
+
+using json = nlohmann::json;
 
 // Helper function to run a solution generation method and print results
 void run_and_print_results(
@@ -18,7 +22,9 @@ void run_and_print_results(
     const std::vector<PointData>& data,
     const std::vector<std::vector<int>>& distance_matrix,
     int num_runs,
-    const std::function<std::vector<int>(int)>& generate_solution
+    const std::function<std::vector<int>(int)>& generate_solution,
+    json& results_json,
+    const std::string& instance_name
 ) {
     std::cout << "\n--- Method: " << method_name << " ---" << std::endl;
     double min_score = std::numeric_limits<double>::max();
@@ -49,18 +55,26 @@ void run_and_print_results(
         return;
     }
 
+    double avg_score = sum_score / solutions_count;
+
     std::cout << "Min value: " << min_score << std::endl;
     std::cout << "Max value: " << max_score << std::endl;
-    std::cout << "Avg value: " << sum_score / solutions_count << std::endl;
+    std::cout << "Avg value: " << avg_score << std::endl;
     std::cout << "Best solution: ";
     for (int id : best_solution) {
         std::cout << id << " ";
     }
     std::cout << std::endl;
+
+    // Add results to JSON object
+    results_json[instance_name][method_name]["min_value"] = min_score;
+    results_json[instance_name][method_name]["max_value"] = max_score;
+    results_json[instance_name][method_name]["avg_value"] = avg_score;
+    results_json[instance_name][method_name]["best_solution"] = best_solution;
 }
 
 // Function to process a single instance of the problem
-void process_instance(const std::string& filename) {
+void process_instance(const std::string& filename, const std::string& instance_name, json& results_json) {
     std::cout << "=================================================" << std::endl;
     std::cout << "Processing instance: " << filename << std::endl;
     std::cout << "=================================================" << std::endl;
@@ -79,7 +93,8 @@ void process_instance(const std::string& filename) {
         [&](int i) -> std::vector<int> {
             int start_node_id = i % num_nodes;
             return generate_greedy_2_regret_solution(data, distance_matrix, start_node_id);
-        }
+        },
+        results_json, instance_name
     );
 
     // --- 2. Greedy with Weighted Sum Method ---
@@ -87,7 +102,8 @@ void process_instance(const std::string& filename) {
         [&](int i) -> std::vector<int> {
             int start_node_id = i % num_nodes;
             return generate_with_weighted_sum_solution(data, distance_matrix, start_node_id);
-        }
+        },
+        results_json, instance_name
     );
 
     // --- 3. Nearest Neighbour 2-Regret Method ---
@@ -95,7 +111,8 @@ void process_instance(const std::string& filename) {
         [&](int i) -> std::vector<int> {
             int start_node_id = i % num_nodes;
             return nearest_neighbour_2_regret(data, distance_matrix, start_node_id);
-        }
+        },
+        results_json, instance_name
     );
 
     // --- 4. Nearest Neighbour with Weighted Sum Method ---
@@ -103,13 +120,27 @@ void process_instance(const std::string& filename) {
         [&](int i) -> std::vector<int> {
             int start_node_id = i % num_nodes;
             return nearest_neighbour_weighted_sum(data, distance_matrix, start_node_id);
-        }
+        },
+        results_json, instance_name
     );
 }
 
-int main() {
-    process_instance("../data/TSPA.csv");
-    process_instance("../data/TSPB.csv");
+int main(int argc, char* argv[]) {
+    std::string json_filename;
+    if (argc == 3 && std::string(argv[1]) == "--json") {
+        json_filename = argv[2];
+    }
+
+    json results_json;
+
+    process_instance("../data/TSPA.csv", "TSPA", results_json);
+    process_instance("../data/TSPB.csv", "TSPB", results_json);
+
+    if (!json_filename.empty()) {
+        std::ofstream o(json_filename);
+        o << std::setw(4) << results_json << std::endl;
+        std::cout << "\nResults saved to " << json_filename << std::endl;
+    }
 
     return 0;
 }
