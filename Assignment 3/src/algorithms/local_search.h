@@ -25,6 +25,7 @@ std::vector<int> local_search(
     SearchType T,
     IntraMoveType N,
     StartingSolutionType S,
+    StageTimer& timer,
     int greedy_start_node_id
 );
 
