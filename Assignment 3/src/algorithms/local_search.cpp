@@ -14,6 +14,7 @@ std::vector<int> local_search(
 ) {
     std::vector<int> solution;
 
+    // TODO: Use StageTimer to measure time
     if (S == StartingSolutionType::RANDOM) {
         solution = generate_random_solution(data);
     } else if (S == StartingSolutionType::GREEDY) {
