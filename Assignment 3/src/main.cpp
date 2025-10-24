@@ -11,6 +11,7 @@
 #include "algorithms/local_search.h"
 #include "core/point_data.h"
 #include "core/json.hpp"
+#include "core/stagetimer.h"
 
 using json = nlohmann::json;
 
@@ -18,11 +19,12 @@ using json = nlohmann::json;
 void run_and_print_results(
     const std::string& method_name,
     const std::vector<PointData>& data,
-    const std::vector<std::vector<int>>& distance_matrix,
+    std::vector<std::vector<int>>& distance_matrix,
     int num_runs,
     const std::function<std::vector<int>(int)>& generate_solution,
     json& results_json,
-    const std::string& instance_name
+    const std::string& instance_name,
+    StageTimer& timer
 ) {
     std::cout << "\n--- Method: " << method_name << " ---" << std::endl;
     double min_score = std::numeric_limits<double>::max();
@@ -72,11 +74,18 @@ void run_and_print_results(
     }
     std::cout << std::endl;
 
+    auto avg_runtimes = timer.get_avg_runtimes();
+    std::cout << "Average runtimes (ms):" << std::endl;
+    for (const auto& pair : avg_runtimes) {
+        std::cout << "  - " << pair.first << ": " << pair.second << " ms" << std::endl;
+    }
+
     // Add results to JSON object
     results_json[instance_name][method_name]["min_value"] = min_score;
     results_json[instance_name][method_name]["max_value"] = max_score;
     results_json[instance_name][method_name]["avg_value"] = avg_score;
     results_json[instance_name][method_name]["best_solution"] = best_solution;
+    results_json[instance_name][method_name]["avg_runtimes_ms"] = avg_runtimes;
 }
 
 // Function to process a single instance of the problem
@@ -94,7 +103,26 @@ void process_instance(const std::string& filename, const std::string& instance_n
     const int num_nodes = data.size();
     const int num_runs = 200;
 
-    // TODO
+    // Local Search Algorithms
+    for (auto T : {SearchType::STEEPEST, SearchType::GREEDY}) {
+        for (auto N : {IntraMoveType::NODES_EXCHANGE, IntraMoveType::EDGES_EXCHANGE}) {
+            for (auto S : {StartingSolutionType::RANDOM, StartingSolutionType::GREEDY}) {
+                std::string t_str = (T == SearchType::STEEPEST) ? "Steepest" : "Greedy";
+                std::string n_str = (N == IntraMoveType::NODES_EXCHANGE) ? "Node" : "Edge";
+                std::string s_str = (S == StartingSolutionType::RANDOM) ? "Random" : "Greedy";
+                std::string method_name = "LS_" + t_str + "_" + n_str + "_" + s_str;
+
+                StageTimer timer;
+                auto generate_solution = [&](int i) {
+                    int start_node_id = (S == StartingSolutionType::GREEDY) ? i : 0;
+                    return local_search(data, distance_matrix, T, N, S, timer, start_node_id);
+                };
+
+                int runs = (S == StartingSolutionType::GREEDY) ? num_nodes : num_runs;
+                run_and_print_results(method_name, data, distance_matrix, runs, generate_solution, results_json, instance_name, timer);
+            }
+        }
+    }
 }
 
 int main(int argc, char* argv[]) {
