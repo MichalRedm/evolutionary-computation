@@ -21,9 +21,11 @@ enum class StartingSolutionType {
 
 std::vector<int> local_search(
     const std::vector<PointData>& data,
+    std::vector<std::vector<int>>& distance_matrix,
     SearchType T,
     IntraMoveType N,
-    StartingSolutionType S
+    StartingSolutionType S,
+    int greedy_start_node_id
 );
 
 #endif // LOCAL_SEARCH_H
