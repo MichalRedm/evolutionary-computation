@@ -1,8 +1,9 @@
 #include "local_search.h"
 
 #include <vector>
-#include <random_solution.h>
-#include <nearest_neighbour_weighted_sum.h>
+#include "random_solution.h"
+#include "nearest_neighbour_weighted_sum.h"
+#include "../core/stagetimer.h"
 
 std::vector<int> local_search(
     const std::vector<PointData>& data,
@@ -10,16 +11,18 @@ std::vector<int> local_search(
     SearchType T,
     IntraMoveType N,
     StartingSolutionType S,
+    StageTimer& timer,
     int greedy_start_node_id = 0
 ) {
     std::vector<int> solution;
 
-    // TODO: Use StageTimer to measure time
+    timer.start_stage("initial_solution");
     if (S == StartingSolutionType::RANDOM) {
         solution = generate_random_solution(data);
     } else if (S == StartingSolutionType::GREEDY) {
         solution = nearest_neighbour_weighted_sum(data, distance_matrix, greedy_start_node_id);
     }
+    timer.end_stage();
 
     // TODO: Implement the local search logic based on SearchType T and IntraMoveType N
 
