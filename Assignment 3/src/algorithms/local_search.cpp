@@ -2,6 +2,11 @@
 
 #include <vector>
 
-std::vector<int> local_search(const std::vector<PointData>& data) { // TODO: Adjust parameters as needed
+std::vector<int> local_search(
+    const std::vector<PointData>& data,
+    SearchType T,
+    IntraMoveType N,
+    StartingSolutionType S
+) {
     return {};
 }
