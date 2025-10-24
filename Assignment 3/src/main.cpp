@@ -104,7 +104,7 @@ void process_instance(const std::string& filename, const std::string& instance_n
     const int num_runs = 200;
 
     // Local Search Algorithms
-    for (auto T : {SearchType::STEEPEST, SearchType::GREEDY}) {
+    for (auto T : {SearchType::GREEDY, SearchType::STEEPEST}) {
         for (auto N : {IntraMoveType::NODES_EXCHANGE, IntraMoveType::EDGES_EXCHANGE}) {
             for (auto S : {StartingSolutionType::RANDOM, StartingSolutionType::GREEDY}) {
                 std::string t_str = (T == SearchType::STEEPEST) ? "Steepest" : "Greedy";

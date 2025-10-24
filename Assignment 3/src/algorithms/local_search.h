@@ -2,6 +2,7 @@
 #define LOCAL_SEARCH_H
 
 #include <vector>
+#include <algorithm>
 #include "../core/point_data.h"
 #include "../core/stagetimer.h"
 
@@ -18,6 +19,11 @@ enum class IntraMoveType {
 enum class StartingSolutionType {
     RANDOM,
     GREEDY
+};
+
+enum class NeighbourhoodType {
+    INTER,
+    INTRA
 };
 
 std::vector<int> local_search(
