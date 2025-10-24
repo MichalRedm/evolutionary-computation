@@ -3,6 +3,7 @@
 
 #include <vector>
 #include "../core/point_data.h"
+#include "../core/stagetimer.h"
 
 enum class SearchType {
     STEEPEST,
