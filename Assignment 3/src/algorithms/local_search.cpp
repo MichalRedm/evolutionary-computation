@@ -13,7 +13,6 @@
 #include "intra_edge_exchange.h"
 #include <iostream>
 
-
 /**
  * @brief Generates parameters for an inter-route node exchange move.
  *
@@ -42,7 +41,6 @@ std::vector<int> get_inter_node_exchange(
 
     return inter_change;
 }
-
 
 /**
  * @brief Generates parameters for an intra-route node exchange move.
@@ -104,7 +102,6 @@ std::vector<int> get_intra_edge_exchange(int i, int solution_size) {
 
     return {row, col}; // Return the *indices*
 }
-
 
 /**
  * @brief Applies a given move to the solution.
@@ -198,7 +195,6 @@ void apply_change(
     NeighbourhoodType best_intra_or_inter;
     const double epsilon = 1e-9; // For floating point comparisons
 
-
     for (int i = 0; i < int(data.size()); ++i){
         // If node i is not in the solution, it gets added to not_in_solution
         if(!(std::find(solution.begin(), solution.end(), i) != solution.end())){ 
@@ -206,7 +202,7 @@ void apply_change(
         }
     }
 
-    // make an array of positions in solution (not ids) (useful for generating random mutations later)
+    // Make an array of positions in solution (not ids) (useful for generating random mutations later)
     for (int i = 0; i < solution_size; ++i){
         solution_pos.push_back(i);
     }
@@ -224,7 +220,6 @@ void apply_change(
         }
     }
 
-
     while (true) {
         // Per assignment: "In greedy version the neighborhood should be browsed in random/randomized order."
         // We achieve this by shuffling the position/node lists and randomly picking
@@ -237,10 +232,9 @@ void apply_change(
         best_delta = std::numeric_limits<double>::max();
         best_change.clear();
         bool improving_move_found_greedy = false;
-
         
-        while(inter_iterator < inter_limit || intra_iterator < intra_limit){
-            // decide which mutation we are doing
+        while (inter_iterator < inter_limit || intra_iterator < intra_limit){
+            // Decide which mutation we are doing
 
             bool can_do_intra = intra_iterator < intra_limit;
             bool can_do_inter = inter_iterator < inter_limit;
@@ -262,7 +256,6 @@ void apply_change(
                 break; // Both neighborhoods exhausted
             }
 
-
             if (intra_or_inter == NeighbourhoodType::INTRA){
                 // --- Intra-route move ---
                 if (N == IntraMoveType::NODES_EXCHANGE) {
@@ -277,8 +270,7 @@ void apply_change(
                     change = {pos1, pos2}; // Store actual positions for apply_change
                 }
                 intra_iterator++;
-            }
-            else{
+            } else {
                 // --- Inter-route move ---
                 change = get_inter_node_exchange(not_in_solution, solution_pos, inter_iterator, solution_size);
                 delta = inter_node_exchange(data, distance_matrix, solution, change[0], change[1]);
@@ -321,4 +313,3 @@ void apply_change(
 
     return solution;
 }
-
