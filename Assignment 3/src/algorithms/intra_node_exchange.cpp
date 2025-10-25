@@ -1,7 +1,8 @@
 #include "intra_node_exchange.h"
 
 #include <vector>
-#include <math.h>
+#include <cmath>
+#include <algorithm>
 
 double intra_node_exchange(
     const std::vector<std::vector<int>>& distance_matrix,
@@ -9,42 +10,50 @@ double intra_node_exchange(
     int node_1_position,
     int node_2_position
 ) {
+    if (node_1_position == node_2_position) {
+        return 0.0;
+    }
 
-    double delta;
-    double current_cost;
-    double cost_after_exchange;
-
-    double difference_in_positions = abs(node_1_position - node_2_position);
     const int solution_size = solution.size();
+    
+    // Determine if the nodes are adjacent in the cycle
+    bool is_adjacent = false;
+    if (abs(node_1_position - node_2_position) == 1) {
+        is_adjacent = true;
+    }
+    if ( (node_1_position == 0 && node_2_position == solution_size - 1) || 
+         (node_2_position == 0 && node_1_position == solution_size - 1) ) {
+        is_adjacent = true;
+    }
 
-    // Case when nodes are neighbours
-    if ( difference_in_positions == 1 ){
-        int earlier_node_position = std::min(node_1_position, node_2_position);
-        int later_node_position = std::max(node_1_position, node_2_position);
 
-        int before_earlier_node = solution[((earlier_node_position - 1) + solution_size) % solution_size];
-        int after_later_node = solution[((later_node_position + 1) ) % solution_size];
-
-        int earlier_node = solution[earlier_node_position];
-        int later_node = solution[later_node_position];
-
-        current_cost = distance_matrix[before_earlier_node][earlier_node] + distance_matrix[later_node][after_later_node];
-
-        cost_after_exchange = distance_matrix[before_earlier_node][later_node] + distance_matrix[earlier_node][after_later_node];
-
+    if (is_adjacent) {
+        // For adjacent nodes X and Y in a cycle ... -> W -> X -> Y -> Z -> ...
+        // swapping them results in ... -> W -> Y -> X -> Z -> ...
+        // The change in cost is (dist(W,Y) + dist(X,Z)) - (dist(W,X) + dist(Y,Z))
         
+        int pos_X = node_1_position;
+        int pos_Y = node_2_position;
 
-    }
-    // Case when nodes are neighbours at the end and beginning of solution vector
-    else if(difference_in_positions == solution_size - 1){
-        // Since in this case we know the ids of the nodes (first and last node),
-        // we can skip the step of calculating the positions of nodes before and after them
-        current_cost = distance_matrix[solution[0]][solution[1]] + distance_matrix[solution[solution_size - 2]][solution[solution_size - 1]];
+        // Ensure that Y is the node that follows X in the cycle
+        if (pos_X != (pos_Y - 1 + solution_size) % solution_size) {
+            std::swap(pos_X, pos_Y);
+        }
 
-        cost_after_exchange = distance_matrix[solution[solution_size - 1]][solution[1]] + distance_matrix[solution[solution_size - 2]][solution[0]];
-    }
-    // Case when nodes are not neighbours
-    else{
+        int pos_W = (pos_X - 1 + solution_size) % solution_size;
+        int pos_Z = (pos_Y + 1) % solution_size;
+
+        int id_W = solution[pos_W];
+        int id_X = solution[pos_X];
+        int id_Y = solution[pos_Y];
+        int id_Z = solution[pos_Z];
+
+        double current_cost = distance_matrix[id_W][id_X] + distance_matrix[id_Y][id_Z];
+        double new_cost = distance_matrix[id_W][id_Y] + distance_matrix[id_X][id_Z];
+        return new_cost - current_cost;
+
+    } else { 
+        // Case when nodes are not neighbours
         int before_node_1 = solution[((node_1_position - 1) + solution_size) % solution_size];
         int after_node_1 = solution[((node_1_position + 1) ) % solution_size];
         int before_node_2 = solution[((node_2_position - 1) + solution_size) % solution_size];
@@ -53,18 +62,15 @@ double intra_node_exchange(
         int node_1 = solution[node_1_position];
         int node_2 = solution[node_2_position];
 
-        current_cost = distance_matrix[before_node_1][node_1]
+        double current_cost = distance_matrix[before_node_1][node_1]
                             + distance_matrix[node_1][after_node_1]
                             + distance_matrix[before_node_2][node_2]
                             + distance_matrix[node_2][after_node_2];
 
-        cost_after_exchange = distance_matrix[before_node_1][node_2]
+        double new_cost = distance_matrix[before_node_1][node_2]
                                     + distance_matrix[node_2][after_node_1]
                                     + distance_matrix[before_node_2][node_1]
-                                    + distance_matrix[node_1][after_node_2];  
+                                    + distance_matrix[node_1][after_node_2];
+        return new_cost - current_cost;
     }
-
-    delta = cost_after_exchange - current_cost;
-
-    return delta;
 }
