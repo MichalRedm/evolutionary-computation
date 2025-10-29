@@ -22,7 +22,7 @@ std::vector<int> nearest_neighbour_weighted_sum(const std::vector<PointData>& da
     visited[start_node_id] = true;
 
     // Iteratively insert nodes based on the 2-regret heuristic weighted with equal weight with basic greedy
-    while (solution.size() < num_to_select) {
+    while (solution.size() < (size_t)num_to_select) {
         int best_node_to_insert = -1;
         int best_insertion_idx = -1;
         double best_weighted_objective = -std::numeric_limits<double>::infinity();
