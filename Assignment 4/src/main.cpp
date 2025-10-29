@@ -105,22 +105,20 @@ void process_instance(const std::string& filename, const std::string& instance_n
 
     // Local Search Algorithms
     for (auto T : {SearchType::GREEDY, SearchType::STEEPEST}) {
-        for (auto N : {IntraMoveType::NODES_EXCHANGE, IntraMoveType::EDGES_EXCHANGE}) {
-            for (auto S : {StartingSolutionType::RANDOM, StartingSolutionType::GREEDY}) {
-                std::string t_str = (T == SearchType::STEEPEST) ? "Steepest" : "Greedy";
-                std::string n_str = (N == IntraMoveType::NODES_EXCHANGE) ? "Node" : "Edge";
-                std::string s_str = (S == StartingSolutionType::RANDOM) ? "Random" : "Greedy";
-                std::string method_name = "LS_" + t_str + "_" + n_str + "_" + s_str;
+        for (auto S : {StartingSolutionType::RANDOM, StartingSolutionType::GREEDY}) {
+            std::string t_str = (T == SearchType::STEEPEST) ? "Steepest" : "Greedy";
+            std::string n_str = "Edge";
+            std::string s_str = (S == StartingSolutionType::RANDOM) ? "Random" : "Greedy";
+            std::string method_name = "LS_" + t_str + "_" + n_str + "_" + s_str;
 
-                StageTimer timer;
-                auto generate_solution = [&](int i) {
-                    int start_node_id = (S == StartingSolutionType::GREEDY) ? i : 0;
-                    return local_search(data, distance_matrix, T, N, S, timer, start_node_id);
-                };
+            StageTimer timer;
+            auto generate_solution = [&](int i) {
+                int start_node_id = (S == StartingSolutionType::GREEDY) ? i : 0;
+                return local_search(data, distance_matrix, T, S, timer, start_node_id);
+            };
 
-                int runs = (S == StartingSolutionType::GREEDY) ? num_nodes : num_runs;
-                run_and_print_results(method_name, data, distance_matrix, runs, generate_solution, results_json, instance_name, timer);
-            }
+            int runs = (S == StartingSolutionType::GREEDY) ? num_nodes : num_runs;
+            run_and_print_results(method_name, data, distance_matrix, runs, generate_solution, results_json, instance_name, timer);
         }
     }
 }

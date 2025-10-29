@@ -15,14 +15,6 @@ enum class SearchType {
 };
 
 /**
- * @brief Defines the type of move to use within the intra-route neighborhood.
- */
-enum class IntraMoveType {
-    NODES_EXCHANGE, ///< Swaps the positions of two nodes in the solution.
-    EDGES_EXCHANGE  ///< Performs a 2-opt move by swapping two edges.
-};
-
-/**
  * @brief Defines the method for generating the initial solution for the local search.
  */
 enum class StartingSolutionType {
@@ -42,7 +34,6 @@ std::vector<int> local_search(
     const std::vector<PointData>& data,
     std::vector<std::vector<int>>& distance_matrix,
     SearchType T,
-    IntraMoveType N,
     StartingSolutionType S,
     StageTimer& timer,
     int greedy_start_node_id
