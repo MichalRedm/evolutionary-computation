@@ -100,24 +100,15 @@ void process_instance(const std::string& filename, const std::string& instance_n
     }
 
     auto distance_matrix = calculate_distance_matrix(data);
-    const int num_nodes = data.size();
     const int num_runs = 200;
+    std::string method_name = "LS_Steepest_Edge_Random_Candidates";
 
-    // Local Search Algorithms
-    for (auto S : {StartingSolutionType::RANDOM, StartingSolutionType::GREEDY}) {
-        std::string n_str = "Edge";
-        std::string s_str = (S == StartingSolutionType::RANDOM) ? "Random" : "Greedy";
-        std::string method_name = "LS_Steepest_" + n_str + "_" + s_str;
+    StageTimer timer;
+    auto generate_solution = [&](int i) {
+        return local_search(data, distance_matrix, StartingSolutionType::RANDOM, timer, 0);
+    };
 
-        StageTimer timer;
-        auto generate_solution = [&](int i) {
-            int start_node_id = (S == StartingSolutionType::GREEDY) ? i : 0;
-            return local_search(data, distance_matrix, S, timer, start_node_id);
-        };
-
-        int runs = (S == StartingSolutionType::GREEDY) ? num_nodes : num_runs;
-        run_and_print_results(method_name, data, distance_matrix, runs, generate_solution, results_json, instance_name, timer);
-    }
+    run_and_print_results(method_name, data, distance_matrix, num_runs, generate_solution, results_json, instance_name, timer);
 }
 
 int main(int argc, char* argv[]) {
