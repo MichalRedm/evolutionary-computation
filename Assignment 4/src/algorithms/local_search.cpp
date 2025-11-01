@@ -101,24 +101,22 @@ void apply_change(
 }
 
 /**
- * @brief Performs a local search to improve an initial solution.
+ * @brief Performs a local search to improve an initial solution using the Steepest Descent approach.
  *
- * This function implements both Steepest Descent and Greedy local search algorithms.
- * It explores two types of neighborhoods: inter-route (swapping a node in the solution
- * with one outside) and intra-route (swapping nodes or edges within the solution).
+ * This function explores two types of neighborhoods: inter-route (swapping a node in the solution
+ * with one outside) and intra-route (swapping nodes or edges within the solution). It always
+ * selects the move that results in the greatest cost reduction (steepest descent).
  *
  * @param data The vector of point data.
  * @param distance_matrix The pre-calculated distance matrix.
- * @param T The search type (STEEPEST or GREEDY).
  * @param S The type of starting solution (RANDOM or GREEDY).
  * @param timer A StageTimer object to record performance metrics.
  * @param greedy_start_node_id The starting node for the greedy initial solution construction.
  * @return The improved solution vector.
  */
-    std::vector<int> local_search(
+std::vector<int> local_search(
     const std::vector<PointData>& data,
     std::vector<std::vector<int>>& distance_matrix,
-    SearchType T,
     StartingSolutionType S,
     StageTimer& timer,
     int greedy_start_node_id
@@ -149,7 +147,7 @@ void apply_change(
     std::vector<int> change;
     std::vector<int> best_change;
     NeighbourhoodType intra_or_inter;
-    NeighbourhoodType best_intra_or_inter;
+    NeighbourhoodType best_intra_or_inter = NeighbourhoodType::INTER; // Initialize
     const double epsilon = 1e-9; // For floating point comparisons
 
     for (int i = 0; i < int(data.size()); ++i){
@@ -175,9 +173,8 @@ void apply_change(
     }
 
     while (true) {
-        // Per assignment: "In greedy version the neighborhood should be browsed in random/randomized order."
-        // We achieve this by shuffling the position/node lists and randomly picking
-        // between inter/intra at each step.
+        // The neighborhood is browsed in a random/randomized order to satisfy the
+        // general local search requirement, but we still find the best move (Steepest)
         std::shuffle(std::begin(solution_pos), std::end(solution_pos), rng);
         std::shuffle(std::begin(not_in_solution), std::end(not_in_solution), rng);
         
@@ -185,7 +182,6 @@ void apply_change(
         intra_iterator = 0;
         best_delta = std::numeric_limits<double>::max();
         best_change.clear();
-        bool improving_move_found_greedy = false;
         
         while (inter_iterator < inter_limit || intra_iterator < intra_limit){
             // Decide which mutation we are doing
@@ -194,7 +190,6 @@ void apply_change(
             bool can_do_inter = inter_iterator < inter_limit;
 
             // Randomly pick between move types if both are available
-            // This satisfies the "browse moves of two kinds in a random order" requirement
             if (can_do_intra && can_do_inter) {
                 // Use a simple random choice
                 if (std::uniform_int_distribution<>(0, 1)(rng) == 0) {
@@ -232,29 +227,16 @@ void apply_change(
                 best_change = change;
                 best_intra_or_inter = intra_or_inter;
             }
-
-            // For Greedy search, apply the first improving move
-            if (T == SearchType::GREEDY && delta < -epsilon){
-                apply_change(intra_or_inter, solution, change, not_in_solution);
-                improving_move_found_greedy = true;
-                break; // Stop browsing neighborhood
-            }
         } // End neighborhood browse loop
 
-        // If Greedy search found a move, continue to the next iteration
-        if (T == SearchType::GREEDY && improving_move_found_greedy) {
-            continue;
-        }
-
+        // Steepest Descent Logic:
         // If no improving move was found (best_delta >= 0), we've reached a local optimum
         if (best_delta >= -epsilon){
             break; // Exit main while(true) loop
         } 
 
-        // If Steepest search, apply the best move found
-        if (T == SearchType::STEEPEST){
-            apply_change(best_intra_or_inter, solution, best_change, not_in_solution);
-        }
+        // Apply the best move found
+        apply_change(best_intra_or_inter, solution, best_change, not_in_solution);
 
     } // End main while(true) loop
 

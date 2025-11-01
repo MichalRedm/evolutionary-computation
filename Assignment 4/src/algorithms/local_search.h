@@ -7,14 +7,6 @@
 #include "../core/stagetimer.h"
 
 /**
- * @brief Defines the type of local search algorithm to use.
- */
-enum class SearchType {
-    STEEPEST, ///< Explores the entire neighborhood and makes the best possible move.
-    GREEDY    ///< Makes the first improving move it finds.
-};
-
-/**
  * @brief Defines the method for generating the initial solution for the local search.
  */
 enum class StartingSolutionType {
@@ -33,7 +25,6 @@ enum class NeighbourhoodType {
 std::vector<int> local_search(
     const std::vector<PointData>& data,
     std::vector<std::vector<int>>& distance_matrix,
-    SearchType T,
     StartingSolutionType S,
     StageTimer& timer,
     int greedy_start_node_id
