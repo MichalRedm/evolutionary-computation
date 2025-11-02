@@ -139,50 +139,40 @@ std::vector<int> local_search(
         // ============================================================
         // INTER-ROUTE CANDIDATE MOVES
         // ============================================================
-        // For each node in the solution, try swapping with its candidate neighbors that are NOT in solution
-        for (int pos = 0; pos < solution_size; ++pos) {
-            int node_in_sol = solution[pos];
+        // For each vertex n1 in the current solution
+        //     For each vertex n2 from the list of the closest vertices to n1
+        //         If n2 is not in the current solution
+        //             Evaluate two moves:
+        //                 -> adding to solution n2 and removing n1 - 1 (previous)
+        //                 -> adding to solution n2 and removing n1 + 1 (next)
+        
+        for (int pos1 = 0; pos1 < solution_size; ++pos1) {
+            int node1 = solution[pos1];
+            int pos1_prev = (pos1 - 1 + solution_size) % solution_size;
+            int pos1_next = (pos1 + 1) % solution_size;
             
-            // Iterate over candidate neighbors of this node
-            for (int candidate_neighbor : candidate_neighbors[node_in_sol]) {
-                // Check if this candidate is not in solution
-                if (solution_set.find(candidate_neighbor) == solution_set.end()) {
+            // For each candidate neighbor of node1
+            for (int node2 : candidate_neighbors[node1]) {
+                // Check if node2 is NOT in solution
+                if (solution_set.find(node2) == solution_set.end()) {
                     // Find position in not_in_solution
-                    auto it = std::find(not_in_solution.begin(), not_in_solution.end(), candidate_neighbor);
+                    auto it = std::find(not_in_solution.begin(), not_in_solution.end(), node2);
                     if (it != not_in_solution.end()) {
                         int pos_in_not_in_sol = std::distance(not_in_solution.begin(), it);
                         
-                        // Evaluate this inter move
-                        double delta = inter_node_exchange(data, distance_matrix, solution, pos, candidate_neighbor);
-                        
-                        if (delta < best_delta) {
-                            best_delta = delta;
-                            best_change = {pos, candidate_neighbor, pos_in_not_in_sol};
+                        // Move 1: Add n2, remove n1-1 (previous)
+                        double delta_prev = inter_node_exchange(data, distance_matrix, solution, pos1_prev, node2);
+                        if (delta_prev < best_delta) {
+                            best_delta = delta_prev;
+                            best_change = {pos1_prev, node2, pos_in_not_in_sol};
                             best_intra_or_inter = NeighbourhoodType::INTER;
                         }
-                    }
-                }
-            }
-        }
-        
-        // Also consider the reverse: nodes NOT in solution whose candidate neighbors ARE in solution
-        for (int i = 0; i < (int)not_in_solution.size(); ++i) {
-            int node_not_in_sol = not_in_solution[i];
-            
-            for (int candidate_neighbor : candidate_neighbors[node_not_in_sol]) {
-                // Check if this candidate IS in solution
-                if (solution_set.find(candidate_neighbor) != solution_set.end()) {
-                    // Find position in solution
-                    auto it = std::find(solution.begin(), solution.end(), candidate_neighbor);
-                    if (it != solution.end()) {
-                        int pos = std::distance(solution.begin(), it);
                         
-                        // Evaluate this inter move
-                        double delta = inter_node_exchange(data, distance_matrix, solution, pos, node_not_in_sol);
-                        
-                        if (delta < best_delta) {
-                            best_delta = delta;
-                            best_change = {pos, node_not_in_sol, i};
+                        // Move 2: Add n2, remove n1+1 (next)
+                        double delta_next = inter_node_exchange(data, distance_matrix, solution, pos1_next, node2);
+                        if (delta_next < best_delta) {
+                            best_delta = delta_next;
+                            best_change = {pos1_next, node2, pos_in_not_in_sol};
                             best_intra_or_inter = NeighbourhoodType::INTER;
                         }
                     }
