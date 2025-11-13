@@ -7,6 +7,7 @@
 #include <limits>    // For numeric_limits
 #include "random_solution.h"
 #include "../core/stagetimer.h"
+#include "../core/evaluation.h"
 #include "inter_node_exchange.h"
 #include "intra_edge_exchange.h"
 #include <iostream>
@@ -38,38 +39,6 @@ std::vector<int> get_inter_node_exchange(
     std::vector<int> inter_change = {position_of_node_to_be_replaced, id_of_replacing_node, position_of_replacing_node};
 
     return inter_change;
-}
-
-/**
- * @brief Generates parameters for an intra-route node exchange move.
- *
- * This function maps a linear iterator to a pair of node positions within the solution to be swapped.
- * It iterates through all unique pairs of nodes, including swapping a node with itself (which has no effect).
- * The number of pairs is N*(N+1)/2.
- *
- * @param solution_pos A list of positions (indices) of nodes in the solution.
- * @param i The linear iterator for intra-route node exchange moves.
- * @param solution_size The size of the current solution.
- * @return A vector containing {position of first node, position of second node}.
- */
-std::vector<int> get_intra_node_exchange(const std::vector<int>& solution_pos, int i, int solution_size) {
-    if (solution_size == 0) throw std::invalid_argument("Vector must not be empty");
-
-    int totalPairs = solution_size * (solution_size + 1) / 2;
-    if (i < 0 || i >= totalPairs)
-        throw std::out_of_range("Index i is out of range");
-
-    // This algorithm decodes a flat index 'i' into a pair of indices (row, col)
-    // representing the upper triangle of a symmetric matrix.
-    int row = 0;
-    while (i >= solution_size - row) {
-        i -= (solution_size - row);
-        row++;
-    }
-    int col = row + i;
-
-    // Return the *positions* from the shuffled list
-    return {solution_pos[row], solution_pos[col]};
 }
 
 /**
@@ -131,6 +100,180 @@ void apply_change(
     }
 }
 
+// Structure to represent an intra-route move (edge exchange)
+struct IntraMove {
+    int pos1;
+    int pos2;
+    double delta;
+    int node_i;
+    int node_i_plus_1;
+    int node_j;
+    int node_j_plus_1;
+    
+    IntraMove(int p1, int p2, double d, int ni, int nip1, int nj, int njp1)
+        : pos1(p1), pos2(p2), delta(d), node_i(ni), node_i_plus_1(nip1), 
+          node_j(nj), node_j_plus_1(njp1) {}
+};
+
+// Structure to represent an inter-route move (node exchange)
+struct InterMove {
+    int solution_pos;
+    int node_in_solution;
+    int node_outside;
+    int outside_pos;
+    double delta;
+    
+    InterMove(int sp, int nis, int no, int op, double d)
+        : solution_pos(sp), node_in_solution(nis), node_outside(no), 
+          outside_pos(op), delta(d) {}
+};
+
+/**
+ * @brief Check if edges exist in current solution with same orientation
+ *
+ * This function checks whether the edges defined by a saved IntraMove still exist
+ * in the current solution and in what orientation.
+ *
+ * @param solution The current solution vector.
+ * @param move The IntraMove containing the edge information to check.
+ * @return 0 = edges don't exist, 1 = same orientation (or both reversed), -1 = different relative orientation
+ */
+int check_edge_orientation(const std::vector<int>& solution, const IntraMove& move) {
+    const int solution_size = solution.size();
+    
+    // Find current position of node_i
+    int current_pos_i = -1;
+    for (int i = 0; i < solution_size; ++i) {
+        if (solution[i] == move.node_i) {
+            current_pos_i = i;
+            break;
+        }
+    }
+    
+    if (current_pos_i == -1) return 0; // node_i not in solution
+    
+    // Check neighbors of node_i in current solution
+    int next_i = solution[(current_pos_i + 1) % solution_size];
+    int prev_i = solution[(current_pos_i - 1 + solution_size) % solution_size];
+    
+    // Find current position of node_j
+    int current_pos_j = -1;
+    for (int i = 0; i < solution_size; ++i) {
+        if (solution[i] == move.node_j) {
+            current_pos_j = i;
+            break;
+        }
+    }
+    
+    if (current_pos_j == -1) return 0; // node_j not in solution
+    
+    // Check neighbors of node_j in current solution
+    int next_j = solution[(current_pos_j + 1) % solution_size];
+    int prev_j = solution[(current_pos_j - 1 + solution_size) % solution_size];
+    
+    // Check if edges exist in same or reversed orientation
+    bool edge1_exists = (next_i == move.node_i_plus_1);
+    bool edge1_reversed = (prev_i == move.node_i_plus_1);
+    bool edge2_exists = (next_j == move.node_j_plus_1);
+    bool edge2_reversed = (prev_j == move.node_j_plus_1);
+    
+    // If either edge doesn't exist at all, return 0
+    if (!edge1_exists && !edge1_reversed) return 0;
+    if (!edge2_exists && !edge2_reversed) return 0;
+    
+    // If both edges exist in same orientation (both forward or both reversed), return 1
+    if (edge1_exists && edge2_exists) return 1;
+    if (edge1_reversed && edge2_reversed) return 1;
+    
+    // Otherwise, edges exist but in different relative orientation
+    return -1;
+}
+
+/**
+ * @brief Evaluate all intra-route moves for current solution
+ *
+ * Generates a list of all improving intra-route (edge exchange) moves
+ * for the current solution.
+ *
+ * @param problem_instance The TSPProblem instance.
+ * @param solution The current solution vector.
+ * @return A vector of IntraMove objects representing all improving moves.
+ */
+std::vector<IntraMove> evaluate_all_intra_moves(
+    TSPProblem& problem_instance,
+    const std::vector<int>& solution
+) {
+    std::vector<IntraMove> moves;
+    const int solution_size = solution.size();
+    
+    if (solution_size < 2) return moves;
+    
+    // Evaluate all possible edge exchange moves
+    for (int i = 0; i < solution_size; ++i) {
+        for (int j = i + 1; j < solution_size; ++j) {
+            double delta = intra_edge_exchange(problem_instance, solution, i, j);
+            
+            // Only add improving moves
+            if (delta < -1e-9) {
+                int pos1_plus_1 = (i + 1) % solution_size;
+                int pos2_plus_1 = (j + 1) % solution_size;
+                
+                moves.emplace_back(
+                    i, j, delta,
+                    solution[i], solution[pos1_plus_1],
+                    solution[j], solution[pos2_plus_1]
+                );
+            }
+        }
+    }
+    
+    return moves;
+}
+
+/**
+ * @brief Evaluate all inter-route moves for current solution
+ *
+ * Generates a list of all improving inter-route (node exchange) moves
+ * for the current solution.
+ *
+ * @param problem_instance The TSPProblem instance.
+ * @param solution The current solution vector.
+ * @param not_in_solution Vector of nodes not currently in the solution.
+ * @return A vector of InterMove objects representing all improving moves.
+ */
+std::vector<InterMove> evaluate_all_inter_moves(
+    TSPProblem& problem_instance,
+    const std::vector<int>& solution,
+    const std::vector<int>& not_in_solution
+) {
+    std::vector<InterMove> moves;
+    
+    // Evaluate all possible node exchanges
+    for (size_t sol_idx = 0; sol_idx < solution.size(); ++sol_idx) {
+        for (size_t out_idx = 0; out_idx < not_in_solution.size(); ++out_idx) {
+            double delta = inter_node_exchange(
+                problem_instance, 
+                const_cast<std::vector<int>&>(solution), 
+                sol_idx, 
+                not_in_solution[out_idx]
+            );
+            
+            // Only add improving moves
+            if (delta < -1e-9) {
+                moves.emplace_back(
+                    sol_idx,
+                    solution[sol_idx],
+                    not_in_solution[out_idx],
+                    out_idx,
+                    delta
+                );
+            }
+        }
+    }
+    
+    return moves;
+}
+
 /**
  * @brief Performs a local search to improve an initial solution.
  *
@@ -150,132 +293,365 @@ std::vector<int> local_search(
     SearchType T,
     StageTimer& timer
 ) {
-    std::vector<int> solution = starting_solution;
+    // GREEDY implementation - original algorithm
+    if (T == SearchType::GREEDY) {
+        std::vector<int> solution = starting_solution;
+        timer.start_stage("local traversing");
+        
+        std::vector<int> not_in_solution = {};
+        auto rng = std::default_random_engine {};
+        std::random_device rd; // Use random_device for a non-deterministic seed
+        rng.seed(rd());       // Seed the random number engine
 
+        int inter_iterator;
+        int intra_iterator;
+        int solution_size = solution.size();
+        std::vector<int> solution_pos = {};
+        double delta;
+        std::vector<int> change;
+        NeighbourhoodType intra_or_inter;
+        const double epsilon = 1e-9; // For floating point comparisons
+
+        for (int i = 0; i < problem_instance.get_num_points(); ++i){
+            // If node i is not in the solution, it gets added to not_in_solution
+            if(!(std::find(solution.begin(), solution.end(), i) != solution.end())){ 
+                not_in_solution.push_back(i);
+            }
+        }
+
+        // Make an array of positions in solution (not ids) (useful for generating random mutations later)
+        for (int i = 0; i < solution_size; ++i){
+            solution_pos.push_back(i);
+        }
+
+        // Define neighborhood limits
+        const int inter_limit = solution_size * not_in_solution.size();
+        int intra_limit;
+        if (solution_size < 2) {
+            intra_limit = 0;
+        } else {
+            intra_limit = solution_size * (solution_size - 1) / 2;
+        }
+
+        while (true) {
+            // Per assignment: "In greedy version the neighborhood should be browsed in random/randomized order."
+            // We achieve this by shuffling the position/node lists and randomly picking
+            // between inter/intra at each step.
+            std::shuffle(std::begin(solution_pos), std::end(solution_pos), rng);
+            std::shuffle(std::begin(not_in_solution), std::end(not_in_solution), rng);
+            
+            inter_iterator = 0;
+            intra_iterator = 0;
+            bool improving_move_found_greedy = false;
+            
+            while (inter_iterator < inter_limit || intra_iterator < intra_limit){
+                // Decide which mutation we are doing
+
+                bool can_do_intra = intra_iterator < intra_limit;
+                bool can_do_inter = inter_iterator < inter_limit;
+
+                // Randomly pick between move types if both are available
+                // This satisfies the "browse moves of two kinds in a random order" requirement
+                if (can_do_intra && can_do_inter) {
+                    // Use a simple random choice
+                    if (std::uniform_int_distribution<>(0, 1)(rng) == 0) {
+                        intra_or_inter = NeighbourhoodType::INTRA;
+                    } else {
+                        intra_or_inter = NeighbourhoodType::INTER;
+                    }
+                } else if (can_do_intra) {
+                    intra_or_inter = NeighbourhoodType::INTRA;
+                } else if (can_do_inter) {
+                    intra_or_inter = NeighbourhoodType::INTER;
+                } else {
+                    break; // Both neighborhoods exhausted
+                }
+
+                if (intra_or_inter == NeighbourhoodType::INTRA){
+                    // --- Intra-route move ---
+                    std::vector<int> indices = get_intra_edge_exchange(intra_iterator, solution_size);
+                    int pos1 = solution_pos[indices[0]];
+                    int pos2 = solution_pos[indices[1]];
+                    delta = intra_edge_exchange(problem_instance, solution, pos1, pos2);
+                    change = {pos1, pos2}; // Store actual positions for apply_change
+                    intra_iterator++;
+                } else {
+                    // --- Inter-route move ---
+                    change = get_inter_node_exchange(not_in_solution, solution_pos, inter_iterator, solution_size);
+                    delta = inter_node_exchange(problem_instance, solution, change[0], change[1]);
+                    inter_iterator++;
+                }
+
+                // For Greedy search, apply the first improving move
+                if (delta < -epsilon){
+                    apply_change(intra_or_inter, solution, change, not_in_solution);
+                    improving_move_found_greedy = true;
+                    break; // Stop browsing neighborhood
+                }
+            } // End neighborhood browse loop
+
+            // If Greedy search found a move, continue to the next iteration
+            if (improving_move_found_greedy) {
+                continue;
+            }
+
+            // If no improving move was found, we've reached a local optimum
+            break; // Exit main while(true) loop
+        } // End main while(true) loop
+
+        timer.end_stage();
+        return solution;
+    }
+    
+    // STEEPEST implementation with move list optimization (LM)
+    std::vector<int> solution = starting_solution;
     timer.start_stage("local traversing");
     
-    std::vector<int> not_in_solution = {};
-    auto rng = std::default_random_engine {};
-    std::random_device rd; // Use random_device for a non-deterministic seed
-    rng.seed(rd());       // Seed the random number engine
-
-    int inter_iterator;
-    int intra_iterator;
-    int solution_size = solution.size();
-    std::vector<int> solution_pos = {};
-    double delta;
-    double best_delta;
-    std::vector<int> change;
-    std::vector<int> best_change;
-    NeighbourhoodType intra_or_inter;
-    NeighbourhoodType best_intra_or_inter;
+    std::vector<int> not_in_solution;
     const double epsilon = 1e-9; // For floating point comparisons
-
-    for (int i = 0; i < problem_instance.get_num_points(); ++i){
-        // If node i is not in the solution, it gets added to not_in_solution
-        if(!(std::find(solution.begin(), solution.end(), i) != solution.end())){ 
+    
+    // Build list of nodes not in solution
+    for (int i = 0; i < problem_instance.get_num_points(); ++i) {
+        if (std::find(solution.begin(), solution.end(), i) == solution.end()) {
             not_in_solution.push_back(i);
         }
     }
-
-    // Make an array of positions in solution (not ids) (useful for generating random mutations later)
-    for (int i = 0; i < solution_size; ++i){
-        solution_pos.push_back(i);
-    }
-
-    // Define neighborhood limits
-    const int inter_limit = solution_size * not_in_solution.size();
-    int intra_limit;
-    if (solution_size < 2) {
-        intra_limit = 0;
-    } else {
-        intra_limit = solution_size * (solution_size - 1) / 2;
-    }
-
+    
+    // Track solution quality to detect cycles
+    double current_solution_cost = evaluate_solution(solution, problem_instance);
+    int iterations_without_improvement = 0;
+    const int max_iterations_without_improvement = 3; // Break if we don't improve after 3 full re-evaluations
+    
+    // Initialize move lists with all improving moves from the starting solution
+    std::vector<IntraMove> intra_move_list = evaluate_all_intra_moves(problem_instance, solution);
+    std::vector<InterMove> inter_move_list = evaluate_all_inter_moves(problem_instance, solution, not_in_solution);
+    
     while (true) {
-        // Per assignment: "In greedy version the neighborhood should be browsed in random/randomized order."
-        // We achieve this by shuffling the position/node lists and randomly picking
-        // between inter/intra at each step.
-        std::shuffle(std::begin(solution_pos), std::end(solution_pos), rng);
-        std::shuffle(std::begin(not_in_solution), std::end(not_in_solution), rng);
+        double best_delta = 0.0;
+        int best_intra_idx = -1;
+        int best_inter_idx = -1;
         
-        inter_iterator = 0;
-        intra_iterator = 0;
-        best_delta = std::numeric_limits<double>::max();
-        best_change.clear();
-        bool improving_move_found_greedy = false;
+        // std::cout << "=== Loop start: LM intra=" << intra_move_list.size() 
+        //           << " inter=" << inter_move_list.size() << std::endl;
         
-        while (inter_iterator < inter_limit || intra_iterator < intra_limit){
-            // Decide which mutation we are doing
-
-            bool can_do_intra = intra_iterator < intra_limit;
-            bool can_do_inter = inter_iterator < inter_limit;
-
-            // Randomly pick between move types if both are available
-            // This satisfies the "browse moves of two kinds in a random order" requirement
-            if (can_do_intra && can_do_inter) {
-                // Use a simple random choice
-                if (std::uniform_int_distribution<>(0, 1)(rng) == 0) {
-                    intra_or_inter = NeighbourhoodType::INTRA;
-                } else {
-                    intra_or_inter = NeighbourhoodType::INTER;
-                }
-            } else if (can_do_intra) {
-                intra_or_inter = NeighbourhoodType::INTRA;
-            } else if (can_do_inter) {
-                intra_or_inter = NeighbourhoodType::INTER;
-            } else {
-                break; // Both neighborhoods exhausted
+        // Browse intra move list (LM)
+        // Consider 3 situations:
+        // 1. Removed edges no longer exist -> remove move from LM
+        // 2. Removed edges exist in different relative direction -> skip for now but keep in LM
+        // 3. Removed edges exist in same relative direction (or both reversed) -> can apply
+        for (size_t i = 0; i < intra_move_list.size(); ) {
+            int orientation = check_edge_orientation(solution, intra_move_list[i]);
+            
+            if (orientation == 0) {
+                // Edges don't exist anymore -> remove from LM
+                intra_move_list.erase(intra_move_list.begin() + i);
+                continue;
+            } else if (orientation == -1) {
+                // Different relative orientation -> skip but keep in LM
+                ++i;
+                continue;
             }
-
-            if (intra_or_inter == NeighbourhoodType::INTRA){
-                // --- Intra-route move ---
-                std::vector<int> indices = get_intra_edge_exchange(intra_iterator, solution_size);
-                int pos1 = solution_pos[indices[0]];
-                int pos2 = solution_pos[indices[1]];
-                delta = intra_edge_exchange(problem_instance, solution, pos1, pos2);
-                change = {pos1, pos2}; // Store actual positions for apply_change
-                intra_iterator++;
-            } else {
-                // --- Inter-route move ---
-                change = get_inter_node_exchange(not_in_solution, solution_pos, inter_iterator, solution_size);
-                delta = inter_node_exchange(problem_instance, solution, change[0], change[1]);
-                inter_iterator++;
+            
+            // orientation == 1: same orientation, move is applicable
+            if (intra_move_list[i].delta < best_delta) {
+                best_delta = intra_move_list[i].delta;
+                best_intra_idx = i;
             }
-
-            // Update best move for Steepest search
-            if (delta < best_delta){
-                best_delta = delta;
-                best_change = change;
-                best_intra_or_inter = intra_or_inter;
+            ++i;
+        }
+        
+        // Browse inter move list (LM)
+        for (size_t i = 0; i < inter_move_list.size(); ) {
+            const InterMove& move = inter_move_list[i];
+            
+            // Check if the node in solution is still at the expected position
+            if (solution[move.solution_pos] != move.node_in_solution) {
+                // Node has been moved -> remove from LM
+                inter_move_list.erase(inter_move_list.begin() + i);
+                continue;
             }
-
-            // For Greedy search, apply the first improving move
-            if (T == SearchType::GREEDY && delta < -epsilon){
-                apply_change(intra_or_inter, solution, change, not_in_solution);
-                improving_move_found_greedy = true;
-                break; // Stop browsing neighborhood
+            
+            // Check if the outside node is still available
+            bool outside_node_available = std::find(not_in_solution.begin(), 
+                                                    not_in_solution.end(), 
+                                                    move.node_outside) != not_in_solution.end();
+            
+            if (!outside_node_available) {
+                // Outside node no longer available -> remove from LM
+                inter_move_list.erase(inter_move_list.begin() + i);
+                continue;
             }
-        } // End neighborhood browse loop
-
-        // If Greedy search found a move, continue to the next iteration
-        if (T == SearchType::GREEDY && improving_move_found_greedy) {
+            
+            // Move is still valid, check if it's the best
+            if (move.delta < best_delta) {
+                best_delta = move.delta;
+                best_intra_idx = -1;
+                best_inter_idx = i;
+            }
+            ++i;
+        }
+        
+        // std::cout << "After LM browse: best_intra_idx=" << best_intra_idx 
+        //           << " best_inter_idx=" << best_inter_idx 
+        //           << " best_delta=" << best_delta << std::endl;
+        
+        // Apply best move from LM if found
+        if (best_intra_idx >= 0) {
+            const IntraMove& move = intra_move_list[best_intra_idx];
+            
+            // double cost_before = evaluate_solution(solution, problem_instance);
+            
+            // Find current positions of the nodes
+            int current_pos1 = -1, current_pos2 = -1;
+            for (size_t i = 0; i < solution.size(); ++i) {
+                if (solution[i] == move.node_i) current_pos1 = i;
+                if (solution[i] == move.node_j) current_pos2 = i;
+            }
+            
+            // Apply the edge exchange
+            apply_intra_edge_exchange(solution, current_pos1, current_pos2);
+            
+            // double cost_after = evaluate_solution(solution, problem_instance);
+            // double actual_delta = cost_after - cost_before;
+            
+            // std::cout << "Applied intra move, predicted delta=" << move.delta 
+            //           << " actual delta=" << actual_delta << std::endl;
+            
+            // Remove applied move from LM
+            intra_move_list.erase(intra_move_list.begin() + best_intra_idx);
+            continue;
+            
+        } else if (best_inter_idx >= 0) {
+            const InterMove& move = inter_move_list[best_inter_idx];
+            
+            // double cost_before = evaluate_solution(solution, problem_instance);
+            
+            // Find position of outside node in not_in_solution
+            auto it = std::find(not_in_solution.begin(), not_in_solution.end(), move.node_outside);
+            int outside_pos = std::distance(not_in_solution.begin(), it);
+            
+            // Apply the node exchange
+            not_in_solution[outside_pos] = solution[move.solution_pos];
+            solution[move.solution_pos] = move.node_outside;
+            
+            // double cost_after = evaluate_solution(solution, problem_instance);
+            // double actual_delta = cost_after - cost_before;
+            
+            // std::cout << "Applied inter move, predicted delta=" << move.delta 
+            //           << " actual delta=" << actual_delta << std::endl;
+            
+            // Remove applied move from LM
+            inter_move_list.erase(inter_move_list.begin() + best_inter_idx);
             continue;
         }
-
-        // If no improving move was found (best_delta >= 0), we've reached a local optimum
-        if (best_delta >= -epsilon){
-            break; // Exit main while(true) loop
-        } 
-
-        // If Steepest search, apply the best move found
-        if (T == SearchType::STEEPEST){
-            apply_change(best_intra_or_inter, solution, best_change, not_in_solution);
+        
+        // std::cout << "No move in LM, starting re-evaluation..." << std::endl;
+        
+        // No improving move found in LM, check if we're making progress
+        double new_solution_cost = evaluate_solution(solution, problem_instance);
+        // std::cout << "Solution cost: " << new_solution_cost << " (previous: " << current_solution_cost << ")" << std::endl;
+        
+        if (new_solution_cost >= current_solution_cost - epsilon) {
+            // No improvement in solution quality
+            iterations_without_improvement++;
+            // std::cout << "No improvement detected. Count: " << iterations_without_improvement << std::endl;
+            
+            if (iterations_without_improvement >= max_iterations_without_improvement) {
+                // std::cout << "Breaking: cycling detected (no improvement after " 
+                //           << max_iterations_without_improvement << " iterations)" << std::endl;
+                break;
+            }
+        } else {
+            // Solution improved, reset counter
+            current_solution_cost = new_solution_cost;
+            iterations_without_improvement = 0;
         }
-
-    } // End main while(true) loop
-
+        
+        // No improving move in LM, evaluate all neighbors
+        std::vector<IntraMove> new_intra = evaluate_all_intra_moves(problem_instance, solution);
+        std::vector<InterMove> new_inter = evaluate_all_inter_moves(problem_instance, solution, not_in_solution);
+        
+        // std::cout << "Re-eval: new_intra=" << new_intra.size() 
+        //           << " new_inter=" << new_inter.size() << std::endl;
+        
+        if (new_intra.empty() && new_inter.empty()) {
+            // No improving moves found, reached local optimum
+            // std::cout << "Breaking: no improving moves found" << std::endl;
+            break;
+        }
+        
+        // Find best new move
+        best_delta = 0.0;
+        int best_new_intra = -1;
+        int best_new_inter = -1;
+        
+        for (size_t i = 0; i < new_intra.size(); ++i) {
+            if (new_intra[i].delta < best_delta) {
+                best_delta = new_intra[i].delta;
+                best_new_intra = i;
+            }
+        }
+        
+        for (size_t i = 0; i < new_inter.size(); ++i) {
+            if (new_inter[i].delta < best_delta) {
+                best_delta = new_inter[i].delta;
+                best_new_intra = -1;
+                best_new_inter = i;
+            }
+        }
+        
+        // std::cout << "Best new delta: " << best_delta 
+        //           << " intra_idx=" << best_new_intra 
+        //           << " inter_idx=" << best_new_inter << std::endl;
+        
+        if (best_delta >= -epsilon) {
+            // No improving move found
+            // std::cout << "Breaking: best_delta >= -epsilon" << std::endl;
+            break;
+        }
+        
+        // Apply best new move
+        if (best_new_intra >= 0) {
+            const IntraMove& move = new_intra[best_new_intra];
+            // std::cout << "Applying intra move: delta=" << move.delta << std::endl;
+            
+            // Find current positions of the nodes
+            int current_pos1 = -1, current_pos2 = -1;
+            for (size_t i = 0; i < solution.size(); ++i) {
+                if (solution[i] == move.node_i) current_pos1 = i;
+                if (solution[i] == move.node_j) current_pos2 = i;
+            }
+            apply_intra_edge_exchange(solution, current_pos1, current_pos2);
+            
+            // Remove applied move from new list
+            new_intra.erase(new_intra.begin() + best_new_intra);
+            
+        } else if (best_new_inter >= 0) {
+            const InterMove& move = new_inter[best_new_inter];
+            // std::cout << "Applying inter move: delta=" << move.delta << std::endl;
+            
+            // Find position of outside node in not_in_solution
+            auto it = std::find(not_in_solution.begin(), not_in_solution.end(), move.node_outside);
+            int outside_pos = std::distance(not_in_solution.begin(), it);
+            
+            // Apply the node exchange
+            not_in_solution[outside_pos] = solution[move.solution_pos];
+            solution[move.solution_pos] = move.node_outside;
+            
+            // Remove applied move from new list
+            new_inter.erase(new_inter.begin() + best_new_inter);
+        }
+        
+        // Repopulate move lists with remaining improving moves
+        intra_move_list.clear();
+        inter_move_list.clear();
+        intra_move_list.insert(intra_move_list.end(), new_intra.begin(), new_intra.end());
+        inter_move_list.insert(inter_move_list.end(), new_inter.begin(), new_inter.end());
+        
+        // std::cout << "After repopulate: LM intra=" << intra_move_list.size() 
+        //           << " inter=" << inter_move_list.size() << std::endl;
+    }
+    
     timer.end_stage();
-
     return solution;
 }
