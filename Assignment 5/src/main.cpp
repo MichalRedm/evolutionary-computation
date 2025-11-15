@@ -9,6 +9,7 @@
 #include "core/evaluation.h"
 #include "core/data_loader.h"
 #include "algorithms/local_search.h"
+#include "algorithms/simple_local_search.h"
 #include "core/point_data.h"
 #include "core/json.hpp"
 #include "core/stagetimer.h"
@@ -104,17 +105,27 @@ void process_instance(const std::string& filename, const std::string& instance_n
     const int num_runs = 200;
     const SearchType T = SearchType::STEEPEST;
 
-    std::string method_name = "LS_Steepest_Edge_Random";
+    std::vector<std::vector<int>> random_solutions = {};
+    for (int i = 0; i < num_runs; ++i) {
+        random_solutions.push_back(generate_random_solution(data));
+    }
 
-    StageTimer timer;
-    auto generate_solution = [&](int i) {
-        timer.start_stage("initial solution");
-        std::vector<int> starting_solution = generate_random_solution(data);
-        timer.end_stage();
-        return local_search(problem_instance, starting_solution, T, timer);
-    };
+    for (auto implementation : {"Simple", "Boosted"}) {
+        std::string method_name = "LS_";
+        method_name += implementation;
 
-    run_and_print_results(method_name, problem_instance, num_runs, generate_solution, results_json, instance_name, timer);
+        StageTimer timer;
+        auto generate_solution = [&](int i) {
+            timer.start_stage("initial solution");
+            std::vector<int> starting_solution = random_solutions[i];
+            timer.end_stage();
+            return implementation == std::string("Simple")
+                ? simple_local_search(problem_instance, starting_solution, T, timer)
+                : local_search(problem_instance, starting_solution, T, timer);
+        };
+
+        run_and_print_results(method_name, problem_instance, num_runs, generate_solution, results_json, instance_name, timer);
+    }
 }
 
 int main(int argc, char* argv[]) {
