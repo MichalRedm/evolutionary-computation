@@ -102,24 +102,19 @@ void process_instance(const std::string& filename, const std::string& instance_n
 
     TSPProblem problem_instance = TSPProblem(data);
     const int num_runs = 200;
+    const SearchType T = SearchType::STEEPEST;
 
-    // Local Search Algorithms
-    for (auto T : {SearchType::STEEPEST}) {
-        std::string t_str = (T == SearchType::STEEPEST) ? "Steepest" : "Greedy";
-        std::string n_str = "Edge";
-        std::string s_str = "Random";
-        std::string method_name = "LS_" + t_str + "_Edge_Random";
+    std::string method_name = "LS_Steepest_Edge_Random";
 
-        StageTimer timer;
-        auto generate_solution = [&](int i) {
-            timer.start_stage("initial solution");
-            std::vector<int> starting_solution = generate_random_solution(data);
-            timer.end_stage();
-            return local_search(problem_instance, starting_solution, T, timer);
-        };
+    StageTimer timer;
+    auto generate_solution = [&](int i) {
+        timer.start_stage("initial solution");
+        std::vector<int> starting_solution = generate_random_solution(data);
+        timer.end_stage();
+        return local_search(problem_instance, starting_solution, T, timer);
+    };
 
-        run_and_print_results(method_name, problem_instance, num_runs, generate_solution, results_json, instance_name, timer);
-    }
+    run_and_print_results(method_name, problem_instance, num_runs, generate_solution, results_json, instance_name, timer);
 }
 
 int main(int argc, char* argv[]) {
