@@ -110,15 +110,13 @@ void process_instance(const std::string& filename, const std::string& instance_n
         random_solutions.push_back(generate_random_solution(data));
     }
 
-    for (auto implementation : {"Simple", "Boosted"}) {
+    for (auto implementation : {"Boosted", "Simple"}) {
         std::string method_name = "LS_";
         method_name += implementation;
 
         StageTimer timer;
         auto generate_solution = [&](int i) {
-            timer.start_stage("initial solution");
             std::vector<int> starting_solution = random_solutions[i];
-            timer.end_stage();
             return implementation == std::string("Simple")
                 ? simple_local_search(problem_instance, starting_solution, T, timer)
                 : local_search(problem_instance, starting_solution, T, timer);
