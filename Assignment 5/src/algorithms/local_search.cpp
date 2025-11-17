@@ -5,6 +5,8 @@
 #include <random>
 #include <stdexcept>
 #include <limits>
+#include <set>
+#include <map>
 #include "random_solution.h"
 #include "../core/stagetimer.h"
 #include "../core/evaluation.h"
@@ -12,67 +14,186 @@
 #include "intra_edge_exchange.h"
 #include "neighborhood_utils.h"
 
-// Structure to represent an intra-route move (edge exchange)
-struct IntraMove {
+// Enum to differentiate move types
+enum class MoveType {
+    INTRA,
+    INTER
+};
+
+// Forward declaration
+struct MoveKey;
+
+// Structure to represent a move
+struct Move {
     double delta;
+    MoveType type;
+    
+    // For INTRA moves (2-opt edge exchange)
     int node_i;
     int node_i_plus_1;
     int node_j;
     int node_j_plus_1;
     
-    IntraMove(double d, int ni, int nip1, int nj, int njp1)
-        : delta(d), node_i(ni), node_i_plus_1(nip1), 
-          node_j(nj), node_j_plus_1(njp1) {}
-};
-
-// Structure to represent an inter-route move (node exchange)
-// We store neighbors to verify if context hasn't changed
-struct InterMove {
-    double delta;
+    // For INTER moves (node exchange)
     int node_in_solution;
-    int node_before;  // Node before node_in_solution in the cycle
-    int node_after;   // Node after node_in_solution in the cycle
     int node_outside;
     
-    InterMove(double d, int nis, int before, int after, int no)
-        : delta(d), node_in_solution(nis), node_before(before), 
-          node_after(after), node_outside(no) {}
+    // Constructor for intra moves
+    Move(double d, int ni, int nip1, int nj, int njp1)
+        : delta(d), type(MoveType::INTRA),
+          node_i(ni), node_i_plus_1(nip1), 
+          node_j(nj), node_j_plus_1(njp1),
+          node_in_solution(-1), node_outside(-1) {}
+    
+    // Constructor for inter moves
+    Move(double d, int nis, int no)
+        : delta(d), type(MoveType::INTER),
+          node_i(-1), node_i_plus_1(-1),
+          node_j(-1), node_j_plus_1(-1),
+          node_in_solution(nis), node_outside(no) {}
+
+    // Default constructor
+    Move() : delta(0.0), type(MoveType::INTRA),
+             node_i(-1), node_i_plus_1(-1),
+             node_j(-1), node_j_plus_1(-1),
+             node_in_solution(-1), node_outside(-1) {}
+    
+    // For sorted container - sort by delta, then by key for stability
+    bool operator<(const Move& other) const {
+        if (std::abs(delta - other.delta) > 1e-9) {
+            return delta < other.delta;
+        }
+        // For equal deltas, compare by move details for stable ordering
+        if (type != other.type) return type < other.type;
+        if (type == MoveType::INTRA) {
+            if (node_i != other.node_i) return node_i < other.node_i;
+            if (node_i_plus_1 != other.node_i_plus_1) return node_i_plus_1 < other.node_i_plus_1;
+            if (node_j != other.node_j) return node_j < other.node_j;
+            return node_j_plus_1 < other.node_j_plus_1;
+        } else {
+            if (node_in_solution != other.node_in_solution) return node_in_solution < other.node_in_solution;
+            return node_outside < other.node_outside;
+        }
+    }
 };
 
-/**
- * @brief Check if inter move context is still valid
- * 
- * Checks if the node_in_solution still has the same neighbors (context)
- * as when the delta was calculated.
- * 
- * @return true if context unchanged (delta is valid), false otherwise
- */
-bool check_inter_move_context(const std::vector<int>& solution, const InterMove& move) {
-    const int solution_size = solution.size();
+// Unique, order-independent identifier for a move
+struct MoveKey {
+    MoveType type;
+    int a, b, c, d;
     
-    // Find position of node_in_solution
-    int current_pos = -1;
-    for (int i = 0; i < solution_size; ++i) {
-        if (solution[i] == move.node_in_solution) {
-            current_pos = i;
-            break;
+    MoveKey(const Move& move) {
+        type = move.type;
+        if (type == MoveType::INTRA) {
+            int edge1_a = std::min(move.node_i, move.node_i_plus_1);
+            int edge1_b = std::max(move.node_i, move.node_i_plus_1);
+            int edge2_a = std::min(move.node_j, move.node_j_plus_1);
+            int edge2_b = std::max(move.node_j, move.node_j_plus_1);
+            
+            if (edge1_a < edge2_a || (edge1_a == edge2_a && edge1_b < edge2_b)) {
+                a = edge1_a; b = edge1_b; c = edge2_a; d = edge2_b;
+            } else {
+                a = edge2_a; b = edge2_b; c = edge1_a; d = edge1_b;
+            }
+        } else {
+            a = std::min(move.node_in_solution, move.node_outside);
+            b = std::max(move.node_in_solution, move.node_outside);
+            c = -1; d = -1;
+        }
+    }
+
+    MoveKey(MoveType t, int n1, int n2, int n3 = -1, int n4 = -1) {
+        type = t;
+        if (type == MoveType::INTRA) {
+            int edge1_a = std::min(n1, n2);
+            int edge1_b = std::max(n1, n2);
+            int edge2_a = std::min(n3, n4);
+            int edge2_b = std::max(n3, n4);
+            if (edge1_a < edge2_a || (edge1_a == edge2_a && edge1_b < edge2_b)) {
+                a = edge1_a; b = edge1_b; c = edge2_a; d = edge2_b;
+            } else {
+                a = edge2_a; b = edge2_b; c = edge1_a; d = edge1_b;
+            }
+        } else {
+            a = std::min(n1, n2);
+            b = std::max(n1, n2);
+            c = -1; d = -1;
         }
     }
     
-    if (current_pos == -1) return false; // Node not in solution
+    bool operator<(const MoveKey& other) const {
+        if (type != other.type) return type < other.type;
+        if (a != other.a) return a < other.a;
+        if (b != other.b) return b < other.b;
+        if (c != other.c) return c < other.c;
+        return d < other.d;
+    }
+};
+
+// Dual data structure for efficient move management
+class MoveManager {
+private:
+    std::map<MoveKey, Move> move_map;           // For O(log n) lookup/update by key
+    std::multiset<Move> sorted_moves;            // For O(log n) access to best move
+    const double epsilon = 1e-9;
+
+public:
+    // Insert or update a move
+    void update(const Move& move) {
+        MoveKey key(move);
+        
+        // Check if move already exists
+        auto it = move_map.find(key);
+        if (it != move_map.end()) {
+            // Remove old version from sorted set
+            sorted_moves.erase(sorted_moves.find(it->second));
+        }
+        
+        // Insert new version
+        move_map[key] = move;
+        sorted_moves.insert(move);
+    }
     
-    // Check if neighbors are the same
-    int current_before = solution[(current_pos - 1 + solution_size) % solution_size];
-    int current_after = solution[(current_pos + 1) % solution_size];
+    // Remove a move by key
+    void remove(const MoveKey& key) {
+        auto it = move_map.find(key);
+        if (it != move_map.end()) {
+            sorted_moves.erase(sorted_moves.find(it->second));
+            move_map.erase(it);
+        }
+    }
     
-    return (current_before == move.node_before && current_after == move.node_after);
-}
-/**
- * @brief Check if edges exist in current solution with same orientation
- */
-int check_edge_orientation(const std::vector<int>& solution, const IntraMove& move) {
+    // Get iterator to best (smallest delta) move
+    std::multiset<Move>::iterator begin_sorted() {
+        return sorted_moves.begin();
+    }
+    
+    std::multiset<Move>::iterator end_sorted() {
+        return sorted_moves.end();
+    }
+    
+    // Check if any improving moves exist
+    bool has_improving_move() const {
+        return !sorted_moves.empty() && sorted_moves.begin()->delta < -epsilon;
+    }
+    
+    size_t size() const {
+        return move_map.size();
+    }
+    
+    void clear() {
+        move_map.clear();
+        sorted_moves.clear();
+    }
+};
+
+const double epsilon = 1e-9;
+
+// Check if intra move edges exist with same orientation
+int check_edge_orientation(const std::vector<int>& solution, const Move& move) {
     const int solution_size = solution.size();
-    
+    if (solution_size < 3) return 0;
+
     int current_pos_i = -1;
     for (int i = 0; i < solution_size; ++i) {
         if (solution[i] == move.node_i) {
@@ -80,11 +201,10 @@ int check_edge_orientation(const std::vector<int>& solution, const IntraMove& mo
             break;
         }
     }
-    
     if (current_pos_i == -1) return 0;
     
-    int next_i = solution[(current_pos_i + 1) % solution_size];
-    int prev_i = solution[(current_pos_i - 1 + solution_size) % solution_size];
+    int next_i_node = solution[(current_pos_i + 1) % solution_size];
+    int prev_i_node = solution[(current_pos_i - 1 + solution_size) % solution_size];
     
     int current_pos_j = -1;
     for (int i = 0; i < solution_size; ++i) {
@@ -93,16 +213,15 @@ int check_edge_orientation(const std::vector<int>& solution, const IntraMove& mo
             break;
         }
     }
-    
     if (current_pos_j == -1) return 0;
+
+    int next_j_node = solution[(current_pos_j + 1) % solution_size];
+    int prev_j_node = solution[(current_pos_j - 1 + solution_size) % solution_size];
     
-    int next_j = solution[(current_pos_j + 1) % solution_size];
-    int prev_j = solution[(current_pos_j - 1 + solution_size) % solution_size];
-    
-    bool edge1_exists = (next_i == move.node_i_plus_1);
-    bool edge1_reversed = (prev_i == move.node_i_plus_1);
-    bool edge2_exists = (next_j == move.node_j_plus_1);
-    bool edge2_reversed = (prev_j == move.node_j_plus_1);
+    bool edge1_exists = (next_i_node == move.node_i_plus_1);
+    bool edge1_reversed = (prev_i_node == move.node_i_plus_1);
+    bool edge2_exists = (next_j_node == move.node_j_plus_1);
+    bool edge2_reversed = (prev_j_node == move.node_j_plus_1);
     
     if (!edge1_exists && !edge1_reversed) return 0;
     if (!edge2_exists && !edge2_reversed) return 0;
@@ -113,69 +232,69 @@ int check_edge_orientation(const std::vector<int>& solution, const IntraMove& mo
     return -1;
 }
 
-/**
- * @brief Evaluate all improving moves
- */
-std::pair<std::vector<IntraMove>, std::vector<InterMove>> evaluate_all_moves(
+// Check if inter move is applicable
+bool check_inter_move_applicable(const std::vector<int>& solution, 
+                                  const std::vector<int>& not_in_solution,
+                                  const Move& move) {
+    bool in_sol = false;
+    for (size_t i = 0; i < solution.size(); ++i) {
+        if (solution[i] == move.node_in_solution) {
+            in_sol = true;
+            break;
+        }
+    }
+    if (!in_sol) return false;
+    
+    bool outside = false;
+    for (size_t i = 0; i < not_in_solution.size(); ++i) {
+        if (not_in_solution[i] == move.node_outside) {
+            outside = true;
+            break;
+        }
+    }
+    if (!outside) return false;
+    
+    return true;
+}
+
+// Re-evaluate and update intra move
+void reevaluate_and_update_intra(
     TSPProblem& problem_instance,
     const std::vector<int>& solution,
-    const std::vector<int>& not_in_solution
+    int pos1, int pos2,
+    MoveManager& LM
 ) {
     const int solution_size = solution.size();
-    const double epsilon = 1e-9;
+    if (solution_size < 3) return;
+    if (pos1 == pos2) return;
     
-    std::vector<IntraMove> intra_moves;
-    std::vector<InterMove> inter_moves;
+    double delta = intra_edge_exchange(problem_instance, solution, pos1, pos2);
     
-    // Evaluate all intra-route moves
-    if (solution_size >= 2) {
-        for (int i = 0; i < solution_size; ++i) {
-            for (int j = i + 1; j < solution_size; ++j) {
-                double delta = intra_edge_exchange(problem_instance, solution, i, j);
-                
-                if (delta < -epsilon) {
-                    int pos1_plus_1 = (i + 1) % solution_size;
-                    int pos2_plus_1 = (j + 1) % solution_size;
-                    
-                    intra_moves.emplace_back(
-                        delta,
-                        solution[i], solution[pos1_plus_1],
-                        solution[j], solution[pos2_plus_1]
-                    );
-                }
-            }
-        }
-    }
+    int pos1_plus_1 = (pos1 + 1) % solution_size;
+    int pos2_plus_1 = (pos2 + 1) % solution_size;
     
-    // Evaluate all inter-route moves
-    for (size_t sol_idx = 0; sol_idx < solution.size(); ++sol_idx) {
-        // Get neighbors of the node at sol_idx
-        int node_in_sol = solution[sol_idx];
-        int node_before = solution[(sol_idx - 1 + solution_size) % solution_size];
-        int node_after = solution[(sol_idx + 1) % solution_size];
-        
-        for (size_t out_idx = 0; out_idx < not_in_solution.size(); ++out_idx) {
-            double delta = inter_node_exchange(
-                problem_instance, 
-                const_cast<std::vector<int>&>(solution), 
-                sol_idx, 
-                not_in_solution[out_idx]
-            );
-            
-            if (delta < -epsilon) {
-                inter_moves.emplace_back(
-                    delta,
-                    node_in_sol,
-                    node_before,
-                    node_after,
-                    not_in_solution[out_idx]
-                );
-            }
-        }
-    }
+    Move move(delta, solution[pos1], solution[pos1_plus_1],
+              solution[pos2], solution[pos2_plus_1]);
     
-    return {intra_moves, inter_moves};
+    LM.update(move);
 }
+
+// Re-evaluate and update inter move
+void reevaluate_and_update_inter(
+    TSPProblem& problem_instance,
+    const std::vector<int>& solution,
+    const std::vector<int>& not_in_solution,
+    int sol_idx, int out_node_id,
+    MoveManager& LM
+) {
+    double delta = inter_node_exchange(problem_instance, 
+                                      const_cast<std::vector<int>&>(solution),
+                                      sol_idx, out_node_id);
+    
+    Move move(delta, solution[sol_idx], out_node_id);
+    LM.update(move);
+}
+
 
 std::vector<int> local_search(
     TSPProblem& problem_instance,
@@ -200,7 +319,6 @@ std::vector<int> local_search(
         double delta;
         std::vector<int> change;
         NeighbourhoodType intra_or_inter;
-        const double epsilon = 1e-9;
 
         for (int i = 0; i < problem_instance.get_num_points(); ++i){
             if(!(std::find(solution.begin(), solution.end(), i) != solution.end())){ 
@@ -277,194 +395,181 @@ std::vector<int> local_search(
         return solution;
     }
     
-    // STEEPEST implementation with LM
+    // STEEPEST implementation with MoveManager
     std::vector<int> solution = starting_solution;
     timer.start_stage("local traversing");
     
     std::vector<int> not_in_solution;
-    const double epsilon = 1e-9;
+    const int solution_size = solution.size();
     
+    // Build not_in_solution list
     for (int i = 0; i < problem_instance.get_num_points(); ++i) {
-        if (std::find(solution.begin(), solution.end(), i) == solution.end()) {
+        bool in_solution = false;
+        for (int j = 0; j < solution_size; ++j) {
+            if (solution[j] == i) {
+                in_solution = true;
+                break;
+            }
+        }
+        if (!in_solution) {
             not_in_solution.push_back(i);
         }
     }
     
-    // Initial evaluation - populate LM with all improving moves
-    auto [intra_move_list, inter_move_list] = evaluate_all_moves(
-        problem_instance, solution, not_in_solution
-    );
+    // MoveManager: combines map for updates and multiset for sorted access
+    MoveManager LM;
+    
+    // Initial evaluation: evaluate all moves
+    if (solution_size >= 2) {
+        for (int i = 0; i < solution_size; ++i) {
+            for (int j = i + 1; j < solution_size; ++j) {
+                reevaluate_and_update_intra(problem_instance, solution, i, j, LM);
+            }
+        }
+    }
+    
+    for (int sol_idx = 0; sol_idx < solution_size; ++sol_idx) {
+        for (size_t out_idx = 0; out_idx < not_in_solution.size(); ++out_idx) {
+            reevaluate_and_update_inter(problem_instance, solution, not_in_solution,
+                                       sol_idx, not_in_solution[out_idx], LM);
+        }
+    }
     
     // Main loop
-    while (true) {
-        double best_delta = 0.0;
-        bool best_is_intra = false;
-        int best_intra_idx = -1;
-        int best_inter_idx = -1;
+    while (LM.has_improving_move()) {
+        bool move_found = false;
+        Move best_move;
         
-        // Browse LM to find best applicable move
-        // For INTRA moves: delta stays valid if edges exist in same orientation
-        for (size_t i = 0; i < intra_move_list.size(); ) {
-            const IntraMove& move = intra_move_list[i];
-            int orientation = check_edge_orientation(solution, move);
+        // Iterate through sorted moves (best first)
+        for (auto it = LM.begin_sorted(); it != LM.end_sorted(); ++it) {
+            const Move& move = *it;
             
-            if (orientation == 0) {
-                // Edges don't exist - remove from LM
-                intra_move_list.erase(intra_move_list.begin() + i);
-                continue;
-            } else if (orientation == -1) {
-                // Different orientation - not applicable now, keep in LM
-                ++i;
-                continue;
-            }
+            // Stop if we've passed all improving moves
+            if (move.delta >= -epsilon) break;
             
-            // orientation == 1: applicable
-            // For intra moves, delta is still valid (depends only on 4 nodes)
-            if (move.delta < best_delta) {
-                best_delta = move.delta;
-                best_is_intra = true;
-                best_intra_idx = i;
-            }
-            ++i;
-        }
-        
-        // For INTER moves: check if context (neighbors) hasn't changed
-        for (size_t i = 0; i < inter_move_list.size(); ) {
-            const InterMove& move = inter_move_list[i];
-            
-            // Check if context is still valid (neighbors haven't changed)
-            if (!check_inter_move_context(solution, move)) {
-                // Context changed - remove from LM
-                inter_move_list.erase(inter_move_list.begin() + i);
-                continue;
-            }
-            
-            // Check if outside node available
-            auto out_it = std::find(not_in_solution.begin(), not_in_solution.end(), move.node_outside);
-            if (out_it == not_in_solution.end()) {
-                inter_move_list.erase(inter_move_list.begin() + i);
-                continue;
-            }
-            
-            // Context is valid - delta is still correct!
-            if (move.delta < best_delta) {
-                best_delta = move.delta;
-                best_is_intra = false;
-                best_inter_idx = i;
-            }
-            ++i;
-        }
-        
-        // If found improving move in LM, apply it
-        if (best_is_intra && best_intra_idx >= 0) {
-            const IntraMove& move = intra_move_list[best_intra_idx];
-            
-            // Find current positions
-            int current_pos1 = -1, current_pos2 = -1;
-            for (size_t j = 0; j < solution.size(); ++j) {
-                if (solution[j] == move.node_i) current_pos1 = j;
-                if (solution[j] == move.node_j) current_pos2 = j;
-            }
-            
-            apply_intra_edge_exchange(solution, current_pos1, current_pos2);
-            intra_move_list.erase(intra_move_list.begin() + best_intra_idx);
-            
-            // Continue with updated solution
-            continue;
-            
-        } else if (!best_is_intra && best_inter_idx >= 0) {
-            const InterMove& move = inter_move_list[best_inter_idx];
-            
-            // Find position of node_in_solution
-            int sol_pos = -1;
-            for (size_t j = 0; j < solution.size(); ++j) {
-                if (solution[j] == move.node_in_solution) {
-                    sol_pos = j;
-                    break;
+            if (move.type == MoveType::INTRA) {
+                int orientation = check_edge_orientation(solution, move);
+                if (orientation == 0) {
+                    // Edges don't exist - mark for removal
+                    LM.remove(MoveKey(move));
+                    continue;
+                } else if (orientation == -1) {
+                    // Different orientation - not applicable now
+                    continue;
                 }
-            }
-            
-            // Find position of node_outside in not_in_solution
-            auto out_it = std::find(not_in_solution.begin(), not_in_solution.end(), move.node_outside);
-            int out_pos = std::distance(not_in_solution.begin(), out_it);
-            
-            // Apply the exchange
-            not_in_solution[out_pos] = solution[sol_pos];
-            solution[sol_pos] = move.node_outside;
-            
-            inter_move_list.erase(inter_move_list.begin() + best_inter_idx);
-            
-            // Continue with updated solution
-            continue;
-        }
-        
-        // LM exhausted - re-evaluate all moves
-        auto [new_intra, new_inter] = evaluate_all_moves(
-            problem_instance, solution, not_in_solution
-        );
-        
-        // If no improving moves, local optimum reached
-        if (new_intra.empty() && new_inter.empty()) {
-            break;
-        }
-        
-        // Find and apply best move
-        best_delta = 0.0;
-        best_intra_idx = -1;
-        best_inter_idx = -1;
-        
-        for (size_t i = 0; i < new_intra.size(); ++i) {
-            if (new_intra[i].delta < best_delta) {
-                best_delta = new_intra[i].delta;
-                best_intra_idx = i;
+                // orientation == 1: applicable
+                best_move = move;
+                move_found = true;
+                break;
+            } else {
+                // INTER move
+                if (!check_inter_move_applicable(solution, not_in_solution, move)) {
+                    // Move is invalid - mark for removal
+                    LM.remove(MoveKey(move));
+                    continue;
+                }
+                best_move = move;
+                move_found = true;
+                break;
             }
         }
         
-        for (size_t i = 0; i < new_inter.size(); ++i) {
-            if (new_inter[i].delta < best_delta) {
-                best_delta = new_inter[i].delta;
-                best_intra_idx = -1;
-                best_inter_idx = i;
-            }
+        if (!move_found) {
+            break; // Local optimum reached
         }
         
-        if (best_intra_idx >= 0) {
-            const IntraMove& move = new_intra[best_intra_idx];
-            
+        // Apply the best applicable move
+        if (best_move.type == MoveType::INTRA) {
+            // Apply intra move
             int current_pos1 = -1, current_pos2 = -1;
-            for (size_t i = 0; i < solution.size(); ++i) {
-                if (solution[i] == move.node_i) current_pos1 = i;
-                if (solution[i] == move.node_j) current_pos2 = i;
+            for (int i = 0; i < solution_size; ++i) {
+                if (solution[i] == best_move.node_i) current_pos1 = i;
+                if (solution[i] == best_move.node_j) current_pos2 = i;
             }
+            
+            if (current_pos1 == -1 || current_pos2 == -1) continue;
+            
             apply_intra_edge_exchange(solution, current_pos1, current_pos2);
             
-            new_intra.erase(new_intra.begin() + best_intra_idx);
+            // Identify 4 affected nodes
+            int n_i = best_move.node_i;
+            int n_i_plus_1 = best_move.node_i_plus_1;
+            int n_j = best_move.node_j;
+            int n_j_plus_1 = best_move.node_j_plus_1;
             
-        } else if (best_inter_idx >= 0) {
-            const InterMove& move = new_inter[best_inter_idx];
+            // Find their new positions
+            int pos_i = -1, pos_i_plus_1 = -1, pos_j = -1, pos_j_plus_1 = -1;
+            for(int i=0; i < solution_size; ++i) {
+                if (solution[i] == n_i) pos_i = i;
+                if (solution[i] == n_i_plus_1) pos_i_plus_1 = i;
+                if (solution[i] == n_j) pos_j = i;
+                if (solution[i] == n_j_plus_1) pos_j_plus_1 = i;
+            }
             
-            // Find position of node_in_solution
+            // Re-evaluate intra moves involving the 4 affected nodes
+            for (int other_pos = 0; other_pos < solution_size; ++other_pos) {
+                reevaluate_and_update_intra(problem_instance, solution, pos_i, other_pos, LM);
+                reevaluate_and_update_intra(problem_instance, solution, pos_i_plus_1, other_pos, LM);
+                reevaluate_and_update_intra(problem_instance, solution, pos_j, other_pos, LM);
+                reevaluate_and_update_intra(problem_instance, solution, pos_j_plus_1, other_pos, LM);
+            }
+            
+            // Re-evaluate inter moves for the 4 affected nodes
+            for (size_t out_idx = 0; out_idx < not_in_solution.size(); ++out_idx) {
+                reevaluate_and_update_inter(problem_instance, solution, not_in_solution, pos_i, not_in_solution[out_idx], LM);
+                reevaluate_and_update_inter(problem_instance, solution, not_in_solution, pos_i_plus_1, not_in_solution[out_idx], LM);
+                reevaluate_and_update_inter(problem_instance, solution, not_in_solution, pos_j, not_in_solution[out_idx], LM);
+                reevaluate_and_update_inter(problem_instance, solution, not_in_solution, pos_j_plus_1, not_in_solution[out_idx], LM);
+            }
+            
+        } else {
+            // Apply inter move
             int sol_pos = -1;
-            for (size_t i = 0; i < solution.size(); ++i) {
-                if (solution[i] == move.node_in_solution) {
+            for (int i = 0; i < solution_size; ++i) {
+                if (solution[i] == best_move.node_in_solution) {
                     sol_pos = i;
                     break;
                 }
             }
             
-            // Find position of node_outside
-            auto out_it = std::find(not_in_solution.begin(), not_in_solution.end(), move.node_outside);
+            int out_pos = -1;
+            for(size_t i=0; i < not_in_solution.size(); ++i) {
+                if (not_in_solution[i] == best_move.node_outside) {
+                    out_pos = i;
+                    break;
+                }
+            }
+            
+            if (sol_pos == -1 || out_pos == -1) continue;
+            
+            // Get neighbors BEFORE swap
+            int pos_before = (sol_pos - 1 + solution_size) % solution_size;
+            int pos_after = (sol_pos + 1) % solution_size;
+            
+            int node_that_left = solution[sol_pos];
+            int node_that_entered = not_in_solution[out_pos];
             
             // Apply the exchange
-            not_in_solution[std::distance(not_in_solution.begin(), out_it)] = solution[sol_pos];
-            solution[sol_pos] = move.node_outside;
+            solution[sol_pos] = node_that_entered;
+            not_in_solution[out_pos] = node_that_left;
             
-            new_inter.erase(new_inter.begin() + best_inter_idx);
+            // Re-evaluate inter moves
+            for (size_t out_idx = 0; out_idx < not_in_solution.size(); ++out_idx) {
+                reevaluate_and_update_inter(problem_instance, solution, not_in_solution, sol_pos, not_in_solution[out_idx], LM);
+                reevaluate_and_update_inter(problem_instance, solution, not_in_solution, pos_before, not_in_solution[out_idx], LM);
+                reevaluate_and_update_inter(problem_instance, solution, not_in_solution, pos_after, not_in_solution[out_idx], LM);
+            }
+            
+            for (int in_idx = 0; in_idx < solution_size; ++in_idx) {
+                reevaluate_and_update_inter(problem_instance, solution, not_in_solution, in_idx, node_that_left, LM);
+            }
+            
+            // Re-evaluate intra moves involving the 2 new edges
+            for (int other_pos = 0; other_pos < solution_size; ++other_pos) {
+                reevaluate_and_update_intra(problem_instance, solution, pos_before, other_pos, LM);
+                reevaluate_and_update_intra(problem_instance, solution, sol_pos, other_pos, LM);
+            }
         }
-        
-        // Repopulate LM with remaining improving moves
-        intra_move_list = std::move(new_intra);
-        inter_move_list = std::move(new_inter);
     }
     
     timer.end_stage();
