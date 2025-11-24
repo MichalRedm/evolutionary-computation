@@ -7,12 +7,8 @@ std::vector<int> destroy_solution(const std::vector<int>& solution, const TSPPro
     int n = current_solution.size();
     if (n <= 3) return current_solution; // Too small to destroy meaningfully
 
-    // We want to remove segments. Let's remove 2-3 segments.
-    int num_segments = std::uniform_int_distribution<>(2, 3)(rng);
-    
     // Calculate edge costs to guide removal (higher cost -> higher prob of being in a removed segment)
     // For simplicity and speed, we can just pick random start points, or pick worst edges.
-    // Let's pick 'num_segments' worst edges and remove a small chunk around them.
     
     struct Edge {
         int u, v;
@@ -27,6 +23,14 @@ std::vector<int> destroy_solution(const std::vector<int>& solution, const TSPPro
         edges.push_back({u, v, i, (double)problem.get_distance(u, v)});
     }
     
+    // Calculate target number of nodes to remove (20-40%)
+    int min_remove = (int)(n * 0.20);
+    int max_remove = (int)(n * 0.40);
+    if (min_remove < 1) min_remove = 1;
+    if (max_remove >= n) max_remove = n - 1;
+    
+    int target_removed = std::uniform_int_distribution<>(min_remove, max_remove)(rng);
+    
     // Sort edges by cost descending
     std::sort(edges.begin(), edges.end(), [](const Edge& a, const Edge& b) {
         return a.cost > b.cost;
@@ -36,15 +40,19 @@ std::vector<int> destroy_solution(const std::vector<int>& solution, const TSPPro
     std::vector<int> indices_to_remove;
     std::set<int> removed_indices_set;
     
-    for (int k = 0; k < num_segments && k < (int)edges.size(); ++k) {
-        // Pick one of the top edges with some randomness
-        int edge_idx = std::uniform_int_distribution<>(0, std::min((int)edges.size() - 1, k + 5))(rng);
+    int attempts = 0;
+    while ((int)removed_indices_set.size() < target_removed && attempts < n * 10) {
+        attempts++;
+        
+        // Pick one of the top edges with some randomness (top 30% of edges)
+        int range = std::max(1, (int)edges.size() / 3);
+        int edge_idx = std::uniform_int_distribution<>(0, range - 1)(rng);
         int start_idx = edges[edge_idx].idx_u;
         
-        // Remove a segment of length 2-5 starting from this edge
-        int segment_len = std::uniform_int_distribution<>(2, 5)(rng);
+        // Remove a segment of length 2-8 starting from this edge
+        int segment_len = std::uniform_int_distribution<>(2, 8)(rng);
         
-        for (int j = 0; j < segment_len; ++j) {
+        for (int j = 0; j < segment_len && (int)removed_indices_set.size() < target_removed; ++j) {
             int idx = (start_idx + j) % n;
             if (removed_indices_set.find(idx) == removed_indices_set.end()) {
                 removed_indices_set.insert(idx);
