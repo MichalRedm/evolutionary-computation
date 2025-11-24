@@ -46,7 +46,11 @@ $(BUILD_DIR)/%.o: %.cpp | $(BUILD_DIR)
 
 # Create build directory
 $(BUILD_DIR):
+ifeq ($(OS),Windows_NT)
+	@if not exist $(subst /,\,$(BUILD_DIR)) mkdir $(subst /,\,$(BUILD_DIR))
+else
 	@mkdir -p $(BUILD_DIR)
+endif
 
 # Target to run the executable
 run: all
