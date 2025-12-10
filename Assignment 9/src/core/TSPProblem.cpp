@@ -46,3 +46,7 @@ int TSPProblem::get_distance(int id1, int id2) const {
 int TSPProblem::get_num_points() const {
     return static_cast<int>(points.size());
 }
+
+const std::vector<PointData>& TSPProblem::get_points() const {
+    return points;
+}

@@ -1,8 +1,6 @@
 #include "evaluation.h"
 
 #include <cmath>
-#include <numeric>
-#include <algorithm>
 #include "TSPProblem.h"
 
 // Function to calculate the Euclidean distance between two points and round it to the nearest integer
@@ -26,7 +24,7 @@ std::vector<std::vector<int>> calculate_distance_matrix(const std::vector<PointD
 }
 
 // Function to evaluate a solution
-double evaluate_solution(const std::vector<int>& solution, TSPProblem& problem_instance) {
+double evaluate_solution(const std::vector<int>& solution, const TSPProblem& problem_instance) {
     double total_cost = 0.0;
     double total_distance = 0.0;
 

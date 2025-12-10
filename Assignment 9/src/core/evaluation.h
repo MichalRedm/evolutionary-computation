@@ -6,6 +6,6 @@
 #include "TSPProblem.h"
 
 std::vector<std::vector<int>> calculate_distance_matrix(const std::vector<PointData>& data);
-double evaluate_solution(const std::vector<int>& solution, TSPProblem& problem_instance);
+double evaluate_solution(const std::vector<int>& solution, const TSPProblem& problem_instance);
 
 #endif // EVALUATION_H

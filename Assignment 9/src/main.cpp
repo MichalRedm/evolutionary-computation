@@ -51,7 +51,7 @@ void process_instance(const std::string& filename, const std::string& instance_n
         auto generate_solution = [&](int i, int& iterations) {
             timer.start_stage(variant.name);
             std::vector<int> starting_solution = random_solutions[i];
-            std::vector<int> result = hybrid_evolutionary_algorithm(problem_instance, starting_solution, time_limit_ms, variant.use_ls, iterations);
+            std::vector<int> result = hybrid_evolutionary_algorithm(problem_instance, starting_solution, time_limit_ms, variant.use_ls, 100, iterations);
             timer.end_stage();
             return result;
         };

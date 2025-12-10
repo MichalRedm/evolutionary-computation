@@ -40,6 +40,12 @@ public:
      * @return The number of points.
      */
     int get_num_points() const;
+
+    /**
+     * @brief Retrieves the vector of all points.
+     * @return A constant reference to the vector of points.
+     */
+    const std::vector<PointData>& get_points() const;
 };
 
 #endif // TSPPROBLEM_H
