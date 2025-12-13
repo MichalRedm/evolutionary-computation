@@ -1,11 +1,62 @@
 #include "hybrid_evolutionary_algorithm.h"
 #include <chrono>
+#include <random>
+#include <unordered_set>
+#include <cstdlib>
 
 #include "elite_population.h"
 #include "random_solution.h"
+#include "local_search.h"
+#include "recombination_operator.h"
+#include "preservation_crossover.h"
+#include "intra_edge_exchange.h"
+#include "../core/stagetimer.h"
 
-// TODO: Implement the hybrid evolutionary algorithm
-// You may need to modify the parameters of this function - remember to update the header file!
+// Helper function to get nodes not in solution
+std::vector<int> getNotInSolution(int size, const std::vector<int>& solution) {
+    std::unordered_set<int> solSet(solution.begin(), solution.end());
+    std::vector<int> not_in_solution;
+    not_in_solution.reserve(size);
+    for (int i = 0; i < size; ++i) {
+        if (solSet.find(i) == solSet.end()) {
+            not_in_solution.push_back(i);
+        }
+    }
+    return not_in_solution;
+}
+
+// Mutation operator: performs perturbations
+void mutate_solution(std::vector<int>& solution, int total_nodes) {
+    int solution_size = solution.size();
+    
+    for (int i = 0; i < 10; ++i) {
+        int randomNum = rand() % 100;
+        if (randomNum < 40) {
+            // Intra edge exchange
+            int node1 = rand() % solution_size;
+            int node2 = rand() % solution_size;
+            apply_intra_edge_exchange(solution, node1, node2);
+        }
+        else if (randomNum < 80) {
+            // Inter node exchange
+            std::vector<int> not_in_solution = getNotInSolution(total_nodes, solution);
+            if (!not_in_solution.empty()) {
+                int node_in_solution_pos = rand() % solution_size;
+                int node_not_in_solution_pos = rand() % not_in_solution.size();
+                solution[node_in_solution_pos] = not_in_solution[node_not_in_solution_pos];
+            }
+        }
+        else {
+            // Intra node exchange (swap two nodes in solution)
+            int node1 = rand() % solution_size;
+            int node2 = rand() % solution_size;
+            int tmp = solution[node1];
+            solution[node1] = solution[node2];
+            solution[node2] = tmp;
+        }
+    }
+}
+
 std::vector<int> hybrid_evolutionary_algorithm(const TSPProblem& problem, 
                                                const std::vector<int>& initial_solution, 
                                                int time_limit_ms, 
@@ -15,20 +66,98 @@ std::vector<int> hybrid_evolutionary_algorithm(const TSPProblem& problem,
     auto start_time = std::chrono::steady_clock::now();
     iterations = 0;
 
-    // Maybe we need to improve those random solutions with local search?
-    ElitePopulation population(population_size, [&]() {
-        return generate_random_solution(problem.get_points());
-    }, problem);
+    // Random number generator for operator selection
+    std::random_device rd;
+    std::mt19937 gen(rd());
+    std::uniform_int_distribution<> operator_choice(0, 1);
+    std::uniform_int_distribution<> mutation_chance(0, 99);
 
-    // Run until time limit
+    int total_nodes = problem.get_num_points();
+
+    // Create a lambda that generates random solutions with local search applied
+    auto solution_generator = [&]() {
+        std::vector<int> random_sol = generate_random_solution(problem.get_points());
+        
+        // Apply local search to initial random solutions
+        StageTimer dummy_timer;
+        std::vector<int> improved_sol = local_search(
+            const_cast<TSPProblem&>(problem), 
+            random_sol, 
+            SearchType::STEEPEST, 
+            dummy_timer
+        );
+        
+        return improved_sol;
+    };
+
+    // Initialize elite population with improved random solutions
+    ElitePopulation population(population_size, solution_generator, problem);
+
+    // Track iterations without improvement for termination
+    const int MAX_ITERATIONS_NO_IMPROVEMENT = 1000;
+    int iterations_without_improvement = 0;
+    double best_known_evaluation = population.get_best_solution().second;
+
+    // Run until time limit or stagnation
     while (true) {
         iterations++;
+        
+        // Check time limit
         auto now = std::chrono::steady_clock::now();
         if (std::chrono::duration_cast<std::chrono::milliseconds>(now - start_time).count() >= time_limit_ms) {
             break;
         }
 
-        // TODO: Implement the main loop of the hybrid evolutionary algorithm
+        // Check stagnation
+        if (iterations_without_improvement >= MAX_ITERATIONS_NO_IMPROVEMENT) {
+            break;
+        }
+
+        // Select two parents uniformly from the population
+        auto [parent1, parent2] = population.get_parents();
+
+        // If population is too small, break
+        if (parent1.empty() || parent2.empty()) {
+            break;
+        }
+
+        // Randomly choose recombination operator
+        std::vector<int> offspring;
+        if (operator_choice(gen) == 0) {
+            // Operator 1: Recombination operator (common nodes/edges + random fill)
+            offspring = recombination_operator(parent1, parent2, problem);
+        } else {
+            // Operator 2: Preservation crossover (filter + repair)
+            offspring = preservation_crossover(parent1, parent2, problem);
+        }
+
+        // Apply mutation with 30% probability
+        if (mutation_chance(gen) < 30) {
+            mutate_solution(offspring, total_nodes);
+        }
+
+        // Apply local search to offspring if use_ls is true
+        if (use_ls) {
+            StageTimer dummy_timer;
+            offspring = local_search(
+                const_cast<TSPProblem&>(problem), 
+                offspring, 
+                SearchType::STEEPEST, 
+                dummy_timer
+            );
+        }
+
+        // Try to add offspring to elite population
+        bool added = population.try_add_solution(offspring);
+
+        // Check if we improved the best solution
+        double current_best = population.get_best_solution().second;
+        if (current_best < best_known_evaluation - 1e-9) {
+            best_known_evaluation = current_best;
+            iterations_without_improvement = 0;
+        } else {
+            iterations_without_improvement++;
+        }
     }
 
     return population.get_best_solution().first;

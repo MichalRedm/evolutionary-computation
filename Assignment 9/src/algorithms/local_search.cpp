@@ -3,25 +3,34 @@
 #include <vector>
 #include <algorithm>
 #include <random>
-#include <limits>    // For numeric_limits
+#include <stdexcept>
+#include <limits>
+#include <cstring>
 #include "../core/stagetimer.h"
 #include "inter_node_exchange.h"
 #include "intra_edge_exchange.h"
-#include "neighborhood_utils.h" // Include the new utility header
+#include <iostream>
 
 /**
- * @brief Performs a local search to improve an initial solution.
- *
- * This function implements both Steepest Descent and Greedy local search algorithms.
- * It explores two types of neighborhoods: inter-route (swapping a node in the solution
- * with one outside) and intra-route (swapping nodes or edges within the solution).
- *
- * @param problem_instance The TSPProblem instance containing points and distance matrix.
- * @param starting_solution The initial solution vector to be improved.
- * @param T The search type (STEEPEST or GREEDY).
- * @param timer A StageTimer object to record performance metrics.
- * @return The improved solution vector.
+ * @brief Applies a given move to the solution.
  */
+inline void apply_change(
+    NeighbourhoodType intra_or_inter,
+    std::vector<int>& solution,
+    int pos1,
+    int pos2_or_id,
+    int pos_in_not_used,
+    int* not_in_solution
+){
+    if (intra_or_inter == NeighbourhoodType::INTRA){
+        apply_intra_edge_exchange(solution, pos1, pos2_or_id);
+    }
+    else{
+        not_in_solution[pos_in_not_used] = solution[pos1];
+        solution[pos1] = pos2_or_id;
+    }
+}
+
 std::vector<int> local_search(
     TSPProblem& problem_instance,
     std::vector<int> starting_solution,
@@ -30,130 +39,166 @@ std::vector<int> local_search(
 ) {
     std::vector<int> solution = starting_solution;
 
-    timer.start_stage("local traversing");
+    timer.start_stage("local search");
     
-    std::vector<int> not_in_solution = {};
+    // Use fixed arrays instead of vectors
+    const int solution_size = solution.size();
+    const int data_size = problem_instance.get_num_points();
+    const int not_in_solution_size = data_size - solution_size;
+    
+    int* not_in_solution = new int[not_in_solution_size];
+    int* solution_pos = new int[solution_size];
+    
     auto rng = std::default_random_engine {};
-    std::random_device rd; // Use random_device for a non-deterministic seed
-    rng.seed(rd());       // Seed the random number engine
+    std::random_device rd;
+    rng.seed(rd());
+    
+    const double epsilon = 1e-9;
 
-    int inter_iterator;
-    int intra_iterator;
-    int solution_size = solution.size();
-    std::vector<int> solution_pos = {};
-    double delta;
-    double best_delta;
-    std::vector<int> change;
-    std::vector<int> best_change;
-    NeighbourhoodType intra_or_inter;
-    NeighbourhoodType best_intra_or_inter;
-    const double epsilon = 1e-9; // For floating point comparisons
-
-    for (int i = 0; i < problem_instance.get_num_points(); ++i){
-        // If node i is not in the solution, it gets added to not_in_solution
-        if(!(std::find(solution.begin(), solution.end(), i) != solution.end())){ 
-            not_in_solution.push_back(i);
+    // Build not_in_solution array
+    int not_in_idx = 0;
+    for (int i = 0; i < data_size; ++i){
+        bool found = false;
+        for (int j = 0; j < solution_size; ++j) {
+            if (solution[j] == i) {
+                found = true;
+                break;
+            }
+        }
+        if (!found) {
+            not_in_solution[not_in_idx++] = i;
         }
     }
 
-    // Make an array of positions in solution (not ids) (useful for generating random mutations later)
+    // Initialize solution_pos array
     for (int i = 0; i < solution_size; ++i){
-        solution_pos.push_back(i);
+        solution_pos[i] = i;
     }
 
-    // Define neighborhood limits
-    const int inter_limit = solution_size * not_in_solution.size();
+    const int inter_limit = solution_size * not_in_solution_size;
     int intra_limit;
-    if (solution_size < 2) {
-        intra_limit = 0;
-    } else {
-        intra_limit = solution_size * (solution_size - 1) / 2;
-    }
 
+    intra_limit = (solution_size < 2) ? 0 : (solution_size * (solution_size - 1) / 2);
+    
     while (true) {
-        // Per assignment: "In greedy version the neighborhood should be browsed in random/randomized order."
-        // We achieve this by shuffling the position/node lists and randomly picking
-        // between inter/intra at each step.
-        std::shuffle(std::begin(solution_pos), std::end(solution_pos), rng);
-        std::shuffle(std::begin(not_in_solution), std::end(not_in_solution), rng);
+        // Shuffle arrays
+        std::shuffle(solution_pos, solution_pos + solution_size, rng);
+        std::shuffle(not_in_solution, not_in_solution + not_in_solution_size, rng);
         
-        inter_iterator = 0;
-        intra_iterator = 0;
-        best_delta = std::numeric_limits<double>::max();
-        best_change.clear();
+        int inter_iterator = 0;
+        int intra_iterator = 0;
+        double best_delta = std::numeric_limits<double>::max();
+        
+        int best_pos1 = -1, best_pos2_or_id = -1, best_pos_in_not_used = -1;
+        NeighbourhoodType best_intra_or_inter = NeighbourhoodType::INTRA;
         bool improving_move_found_greedy = false;
         
+        // Browse neighborhood - HOT LOOP WITH NO TIMERS
         while (inter_iterator < inter_limit || intra_iterator < intra_limit){
-            // Decide which mutation we are doing
+            
+            const bool can_do_intra = intra_iterator < intra_limit;
+            const bool can_do_inter = inter_iterator < inter_limit;
+            
+            if (!can_do_intra && !can_do_inter) break;
+            
+            NeighbourhoodType intra_or_inter;
+            double delta;
+            int pos1, pos2_or_id, pos_in_not_used = -1;
 
-            bool can_do_intra = intra_iterator < intra_limit;
-            bool can_do_inter = inter_iterator < inter_limit;
-
-            // Randomly pick between move types if both are available
-            // This satisfies the "browse moves of two kinds in a random order" requirement
+            // Decide move type
             if (can_do_intra && can_do_inter) {
-                // Use a simple random choice
-                if (std::uniform_int_distribution<>(0, 1)(rng) == 0) {
-                    intra_or_inter = NeighbourhoodType::INTRA;
-                } else {
-                    intra_or_inter = NeighbourhoodType::INTER;
-                }
-            } else if (can_do_intra) {
-                intra_or_inter = NeighbourhoodType::INTRA;
-            } else if (can_do_inter) {
-                intra_or_inter = NeighbourhoodType::INTER;
+                intra_or_inter = (std::uniform_int_distribution<>(0, 1)(rng) == 0) 
+                    ? NeighbourhoodType::INTRA : NeighbourhoodType::INTER;
             } else {
-                break; // Both neighborhoods exhausted
+                intra_or_inter = can_do_intra ? NeighbourhoodType::INTRA : NeighbourhoodType::INTER;
             }
 
+            // Generate move and calculate delta
             if (intra_or_inter == NeighbourhoodType::INTRA){
-                // --- Intra-route move ---
-                std::vector<int> indices = get_intra_edge_exchange(intra_iterator, solution_size);
-                int pos1 = solution_pos[indices[0]];
-                int pos2 = solution_pos[indices[1]];
-                delta = intra_edge_exchange(problem_instance, solution, pos1, pos2);
-                change = {pos1, pos2}; // Store actual positions for apply_change
+                // EDGES_EXCHANGE
+                // Inline get_intra_edge_exchange
+                int i = intra_iterator;
+                int row = 0;
+                while (i >= (solution_size - 1 - row)) {
+                    i -= (solution_size - 1 - row);
+                    row++;
+                }
+                int col = row + 1 + i;
+                pos1 = solution_pos[row];
+                pos2_or_id = solution_pos[col];
+                
+                // Inline intra_edge_exchange delta calculation
+                const int pos1_plus_1 = (pos1 + 1) % solution_size;
+                const int pos2_plus_1 = (pos2_or_id + 1) % solution_size;
+                
+                if (pos1 == pos2_or_id || pos1_plus_1 == pos2_or_id || pos2_plus_1 == pos1) {
+                    delta = 0.0;
+                } else {
+                    const int node_i = solution[pos1];
+                    const int node_i_plus_1 = solution[pos1_plus_1];
+                    const int node_j = solution[pos2_or_id];
+                    const int node_j_plus_1 = solution[pos2_plus_1];
+                    
+                    delta = problem_instance.get_distance(node_i, node_j) + problem_instance.get_distance(node_i_plus_1, node_j_plus_1)
+                            - problem_instance.get_distance(node_i, node_i_plus_1) - problem_instance.get_distance(node_j, node_j_plus_1);
+                }
+                
                 intra_iterator++;
             } else {
-                // --- Inter-route move ---
-                change = get_inter_node_exchange(not_in_solution, solution_pos, inter_iterator, solution_size);
-                delta = inter_node_exchange(problem_instance, solution, change[0], change[1]);
+                // Inline get_inter_node_exchange
+                pos1 = solution_pos[inter_iterator / not_in_solution_size];
+                pos_in_not_used = inter_iterator % not_in_solution_size;
+                pos2_or_id = not_in_solution[pos_in_not_used];
+                
+                // Inline inter_node_exchange delta calculation
+                const int before_node_1 = solution[(pos1 - 1 + solution_size) % solution_size];
+                const int after_node_1 = solution[(pos1 + 1) % solution_size];
+                const int node_1 = solution[pos1];
+                
+                delta = problem_instance.get_distance(before_node_1, pos2_or_id) + problem_instance.get_distance(pos2_or_id, after_node_1) + problem_instance.get_point(pos2_or_id).cost
+                      - problem_instance.get_distance(before_node_1, node_1) - problem_instance.get_distance(node_1, after_node_1) - problem_instance.get_point(node_1).cost;
+                
                 inter_iterator++;
             }
-
-            // Update best move for Steepest search
+            
+            // Track best move - inlined comparison
             if (delta < best_delta){
                 best_delta = delta;
-                best_change = change;
+                best_pos1 = pos1;
+                best_pos2_or_id = pos2_or_id;
+                best_pos_in_not_used = pos_in_not_used;
                 best_intra_or_inter = intra_or_inter;
             }
 
-            // For Greedy search, apply the first improving move
+            // Greedy: apply first improving move
             if (T == SearchType::GREEDY && delta < -epsilon){
-                apply_change(intra_or_inter, solution, change, not_in_solution);
+                apply_change(intra_or_inter, solution, pos1, pos2_or_id, pos_in_not_used, not_in_solution);
                 improving_move_found_greedy = true;
-                break; // Stop browsing neighborhood
+                break;
             }
-        } // End neighborhood browse loop
+        }
 
-        // If Greedy search found a move, continue to the next iteration
         if (T == SearchType::GREEDY && improving_move_found_greedy) {
             continue;
         }
 
-        // If no improving move was found (best_delta >= 0), we've reached a local optimum
+        // Check convergence
         if (best_delta >= -epsilon){
-            break; // Exit main while(true) loop
+            break;
         } 
 
-        // If Steepest search, apply the best move found
+        // Apply best move for steepest
         if (T == SearchType::STEEPEST){
-            apply_change(best_intra_or_inter, solution, best_change, not_in_solution);
+            apply_change(best_intra_or_inter, solution, best_pos1, best_pos2_or_id, 
+                        best_pos_in_not_used, not_in_solution);
         }
-
-    } // End main while(true) loop
-
+    }
+    
     timer.end_stage();
+
+    // Cleanup
+    delete[] not_in_solution;
+    delete[] solution_pos;
 
     return solution;
 }
