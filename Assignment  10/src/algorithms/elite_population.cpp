@@ -56,6 +56,48 @@ std::pair<std::vector<int>, std::vector<int>> ElitePopulation::get_parents() {
     return {population[idx1].solution, population[idx2].solution};
 }
 
+std::pair<std::vector<int>, std::vector<int>> ElitePopulation::get_parents_tournament() {
+    size_t N = population.size();
+
+    if (N < 2) {
+        if (N == 1) return {population[0].solution, population[0].solution};
+        return {{}, {}};
+    }
+
+    // Helper lambda: run a 2-way tournament and return the winner index
+    auto tournament = [&]() -> size_t {
+        // 1. Pick first competitor index from [0, N-1]
+        std::uniform_int_distribution<size_t> dis1(0, N - 1);
+        size_t idx1 = dis1(gen);
+
+        // 2. Pick a "raw" second index from [0, N-2]
+        // (representing the N-1 remaining choices)
+        std::uniform_int_distribution<size_t> dis2(0, N - 2);
+        size_t idx2 = dis2(gen);
+
+        // 3. Shift idx2 to skip over idx1
+        // This maps [0, N-2] to [0, N-1] \ {idx1}
+        if (idx2 >= idx1) {
+            idx2++;
+        }
+
+        // 4. Select the better individual based on evaluation
+        // (assuming higher evaluation is better)
+        if (population[idx1].evaluation >= population[idx2].evaluation) {
+            return idx1;
+        } else {
+            return idx2;
+        }
+    };
+
+    // Run two independent tournaments to select two parents
+    size_t parent1 = tournament();
+    size_t parent2 = tournament();
+
+    return {population[parent1].solution, population[parent2].solution};
+}
+
+
 std::pair<std::vector<int>, double> ElitePopulation::get_best_solution() {
     if (population.empty()) return {{}, -1.0};
     return {population[0].solution, population[0].evaluation};

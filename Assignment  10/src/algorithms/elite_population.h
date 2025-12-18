@@ -56,11 +56,18 @@ public:
     bool try_add_solution(const std::vector<int>& solution);
 
     /**
+     * @brief Selects two parents from the population for crossover with tournament.
+     * Uses tournament selection o select 2 different parents for crossover.
+     * @return A pair containing two parent solution vectors. Returns empty vectors if population is insufficient.
+     */
+    std::pair<std::vector<int>, std::vector<int>> get_parents();
+
+    /**
      * @brief Selects two parents from the population for crossover.
      * Uses uniform random selection to pick two distinct indices.
      * @return A pair containing two parent solution vectors. Returns empty vectors if population is insufficient.
      */
-    std::pair<std::vector<int>, std::vector<int>> get_parents();
+    std::pair<std::vector<int>, std::vector<int>> get_parents_tournament();
 
     /**
      * @brief Retrieves the best solution found so far (the 0-th element).

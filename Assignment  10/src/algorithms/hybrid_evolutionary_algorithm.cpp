@@ -3,6 +3,7 @@
 #include <random>
 #include <unordered_set>
 #include <cstdlib>
+#include <iostream>
 
 #include "elite_population.h"
 #include "random_solution.h"
@@ -117,10 +118,15 @@ std::vector<int> hybrid_evolutionary_algorithm(const TSPProblem& problem,
         std::vector<int> offspring;
         // 80% chance to do crossover with operators + mutation + local search
         // 20% chance for large neighborhood search
-        if (chance_out_of_100(gen) < 80) {
+        if (chance_out_of_100(gen) < 90) {
             
+            int tournament_selection_chance = 80;
             // Select two parents uniformly from the population
             auto [parent1, parent2] = population.get_parents();
+            if (chance_out_of_100(gen) < tournament_selection_chance){
+                // Select two parents using the tournament selection
+                auto [parent1, parent2] = population.get_parents_tournament();
+            }
 
             // If population is too small, break
             if (parent1.empty() || parent2.empty()) {
@@ -178,6 +184,8 @@ std::vector<int> hybrid_evolutionary_algorithm(const TSPProblem& problem,
         if (current_best < best_known_evaluation - 1e-9) {
             best_known_evaluation = current_best;
             iterations_without_improvement = 0;
+
+            // std::cout<<"iteration: "<<iterations<<" best_score: "<<current_best<<"\n";
         } else {
             iterations_without_improvement++;
         }
