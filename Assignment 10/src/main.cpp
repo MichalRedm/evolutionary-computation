@@ -78,8 +78,8 @@ void process_instance(const std::string& filename, const std::string& instance_n
         auto generate_solution = [&](int i, int& iterations) {
             timer.start_stage(config.name);
             std::vector<int> starting_solution = random_solutions[i];
-            // Uses defaults for mutation (0.3) and LNS (0.0)
-            std::vector<int> result = hybrid_evolutionary_algorithm(problem_instance, starting_solution, time_limit_ms, 20, iterations, 0.3, 0.0, config.crossovers);
+            // Uses defaults for mutation (0.3), LNS (0.0), and tournament (0.8)
+            std::vector<int> result = hybrid_evolutionary_algorithm(problem_instance, starting_solution, time_limit_ms, 20, iterations, 0.3, 0.0, 0.8, config.crossovers);
             timer.end_stage();
             return result;
         };

@@ -65,6 +65,7 @@ std::vector<int> hybrid_evolutionary_algorithm(const TSPProblem& problem,
                                                int& iterations,
                                                double mutation_probability,
                                                double lns_probability,
+                                               double tournament_selection_probability,
                                                const std::vector<std::pair<CrossoverFunc, double>>& crossovers) {
     auto start_time = std::chrono::steady_clock::now();
     iterations = 0;
@@ -131,12 +132,11 @@ std::vector<int> hybrid_evolutionary_algorithm(const TSPProblem& problem,
         std::vector<int> offspring;
         if (chance_out_of_100(gen) < (1.0 - lns_probability) * 100) {
             
-            int tournament_selection_chance = 80;
             // Select two parents uniformly from the population
             std::pair<std::vector<int>, std::vector<int>> parents = population.get_parents();
             std::vector<int> parent1 = parents.first;
             std::vector<int> parent2 = parents.second;
-            if (chance_out_of_100(gen) < tournament_selection_chance){
+            if (chance_out_of_100(gen) < tournament_selection_probability * 100){
                 // Select two parents using the tournament selection
                  parents = population.get_parents_tournament();
                  parent1 = parents.first;
