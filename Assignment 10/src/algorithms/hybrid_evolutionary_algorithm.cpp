@@ -3,6 +3,7 @@
 #include <random>
 #include <unordered_set>
 #include <cstdlib>
+#include <numeric>
 
 #include "elite_population.h"
 #include "random_solution.h"
@@ -66,7 +67,8 @@ std::vector<int> hybrid_evolutionary_algorithm(const TSPProblem& problem,
                                                double mutation_probability,
                                                double lns_probability,
                                                double tournament_selection_probability,
-                                               const std::vector<std::pair<CrossoverFunc, double>>& crossovers) {
+                                               const std::vector<std::pair<CrossoverFunc, double>>& crossovers,
+                                               bool use_adaptive_crossover) {
     auto start_time = std::chrono::steady_clock::now();
     iterations = 0;
 
@@ -77,12 +79,12 @@ std::vector<int> hybrid_evolutionary_algorithm(const TSPProblem& problem,
         active_crossovers.push_back({preservation_crossover, 0.5});
     }
 
-    // Prepare distribution for crossover selection
+    // Initialize weights for crossover selection
     std::vector<double> weights;
     for (const auto& p : active_crossovers) {
         weights.push_back(p.second);
     }
-    std::discrete_distribution<> crossover_dist(weights.begin(), weights.end());
+    
     std::random_device rd;
     std::mt19937 gen(rd());
     std::uniform_int_distribution<> chance_out_of_100(0, 99);
@@ -128,10 +130,15 @@ std::vector<int> hybrid_evolutionary_algorithm(const TSPProblem& problem,
             break;
         }
 
-        // Check LNS probability
         std::vector<int> offspring;
+        int op_index = -1; // Track which crossover operator was used (-1 if LNS or none)
+
+        // Check LNS probability
         if (chance_out_of_100(gen) < (1.0 - lns_probability) * 100) {
             
+            // Rebuild distribution with current weights (if adaptive is on, weights change)
+            std::discrete_distribution<> crossover_dist(weights.begin(), weights.end());
+
             // Select two parents uniformly from the population
             std::pair<std::vector<int>, std::vector<int>> parents = population.get_parents();
             std::vector<int> parent1 = parents.first;
@@ -149,7 +156,7 @@ std::vector<int> hybrid_evolutionary_algorithm(const TSPProblem& problem,
             }
 
             // Randomly choose recombination operator based on weights
-            int op_index = crossover_dist(gen);
+            op_index = crossover_dist(gen);
             offspring = active_crossovers[op_index].first(parent1, parent2, problem);
 
             // Apply mutation based on probability
@@ -184,8 +191,35 @@ std::vector<int> hybrid_evolutionary_algorithm(const TSPProblem& problem,
             offspring = large_neighborhood_search(const_cast<TSPProblem&>(problem), parents.first, 2, true);
         }
 
-        // Try to add offspring to elite population
-        population.try_add_solution(offspring);
+        // Try to add offspring to elite population and capture success status
+        bool added_to_population = population.try_add_solution(offspring);
+
+        // Adaptive Probability Update Logic
+        if (use_adaptive_crossover && op_index != -1) {
+            const double LEARNING_RATE = 0.05; // 5% adjustment
+            const double MIN_WEIGHT = 0.01;    // Minimum 1% probability to maintain diversity
+
+            if (added_to_population) {
+                // Reward: Increase probability
+                weights[op_index] *= (1.0 + LEARNING_RATE);
+            } else {
+                // Penalize: Decrease probability
+                weights[op_index] *= (1.0 - LEARNING_RATE);
+            }
+
+            // Ensure we don't drop below minimum weight
+            if (weights[op_index] < MIN_WEIGHT) {
+                weights[op_index] = MIN_WEIGHT;
+            }
+
+            // Normalize weights to prevent unbounded growth/shrinkage
+            double total_weight = 0.0;
+            for (double w : weights) total_weight += w;
+            
+            if (total_weight > 0.0) {
+                for (double& w : weights) w /= total_weight;
+            }
+        }
 
         // Check if we improved the best solution
         double current_best = population.get_best_solution().second;
