@@ -36,6 +36,8 @@ std::vector<int> hybrid_evolutionary_algorithm(const TSPProblem& problem,
                                                double lns_probability = 0.0,
                                                double tournament_selection_probability = 0.8,
                                                const std::vector<std::pair<CrossoverFunc, double>>& crossovers = {},
-                                               bool use_adaptive_crossover = true);
+                                               bool use_adaptive_crossover = true,
+                                               double adaptive_learning_rate = 0.01,
+                                               double adaptive_min_weight = 0.25);
 
 #endif // HYBRID_EVOLUTIONARY_ALGORITHM_H

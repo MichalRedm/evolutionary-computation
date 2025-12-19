@@ -3,7 +3,6 @@
 #include <random>
 #include <unordered_set>
 #include <cstdlib>
-#include <numeric>
 
 #include "elite_population.h"
 #include "random_solution.h"
@@ -68,7 +67,9 @@ std::vector<int> hybrid_evolutionary_algorithm(const TSPProblem& problem,
                                                double lns_probability,
                                                double tournament_selection_probability,
                                                const std::vector<std::pair<CrossoverFunc, double>>& crossovers,
-                                               bool use_adaptive_crossover) {
+                                               bool use_adaptive_crossover,
+                                               double adaptive_learning_rate,
+                                               double adaptive_min_weight) {
     auto start_time = std::chrono::steady_clock::now();
     iterations = 0;
 
@@ -196,20 +197,18 @@ std::vector<int> hybrid_evolutionary_algorithm(const TSPProblem& problem,
 
         // Adaptive Probability Update Logic
         if (use_adaptive_crossover && op_index != -1) {
-            const double LEARNING_RATE = 0.05; // 5% adjustment
-            const double MIN_WEIGHT = 0.01;    // Minimum 1% probability to maintain diversity
 
             if (added_to_population) {
                 // Reward: Increase probability
-                weights[op_index] *= (1.0 + LEARNING_RATE);
+                weights[op_index] *= (1.0 + adaptive_learning_rate);
             } else {
                 // Penalize: Decrease probability
-                weights[op_index] *= (1.0 - LEARNING_RATE);
+                weights[op_index] *= (1.0 - adaptive_learning_rate);
             }
 
             // Ensure we don't drop below minimum weight
-            if (weights[op_index] < MIN_WEIGHT) {
-                weights[op_index] = MIN_WEIGHT;
+            if (weights[op_index] < adaptive_min_weight) {
+                weights[op_index] = adaptive_min_weight;
             }
 
             // Normalize weights to prevent unbounded growth/shrinkage
