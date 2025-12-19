@@ -76,7 +76,8 @@ void process_instance(const std::string& filename, const std::string& instance_n
         {"tournament_probability", {0.2, 0.5, 0.8}},
         {"adaptive_learning_rate", {0.01}},
         {"adaptive_min_weight", {0.25}},
-        {"use_adaptive_crossover", {1.0}} // Using double 1.0 for true, 0.0 for false
+        {"use_adaptive_crossover", {1.0}},
+        {"mutation_strength", {10.0}} // Default 10
     };
 
     // Generate all configurations recursively
@@ -119,6 +120,7 @@ void process_instance(const std::string& filename, const std::string& instance_n
             bool use_adaptive = (config.at("use_adaptive_crossover") > 0.5);
             double lr = config.at("adaptive_learning_rate");
             double min_w = config.at("adaptive_min_weight");
+            int mut_str = (int)config.at("mutation_strength");
 
             std::vector<int> result = hybrid_evolutionary_algorithm(
                 problem_instance, 
@@ -132,7 +134,8 @@ void process_instance(const std::string& filename, const std::string& instance_n
                 crossovers, 
                 use_adaptive,
                 lr,
-                min_w
+                min_w,
+                mut_str
             );
             timer.end_stage();
             return result;

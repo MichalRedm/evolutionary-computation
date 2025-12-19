@@ -69,7 +69,8 @@ std::vector<int> hybrid_evolutionary_algorithm(const TSPProblem& problem,
                                                const std::vector<std::pair<CrossoverFunc, double>>& crossovers,
                                                bool use_adaptive_crossover,
                                                double adaptive_learning_rate,
-                                               double adaptive_min_weight) {
+                                               double adaptive_min_weight,
+                                               int mutation_strength) {
     auto start_time = std::chrono::steady_clock::now();
     iterations = 0;
 
@@ -162,7 +163,7 @@ std::vector<int> hybrid_evolutionary_algorithm(const TSPProblem& problem,
 
             // Apply mutation based on probability
             if (chance_out_of_100(gen) < mutation_probability * 100) {
-                mutate_solution(offspring, total_nodes, 10);
+                mutate_solution(offspring, total_nodes, mutation_strength);
             }
 
             // Randomly choose local search type
