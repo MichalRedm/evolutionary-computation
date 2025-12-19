@@ -63,14 +63,26 @@ std::vector<int> hybrid_evolutionary_algorithm(const TSPProblem& problem,
                                                int time_limit_ms, 
                                                bool use_ls,
                                                int population_size,
-                                               int& iterations) {
+                                               int& iterations,
+                                               const std::vector<std::pair<CrossoverFunc, double>>& crossovers) {
     auto start_time = std::chrono::steady_clock::now();
     iterations = 0;
 
-    // Random number generator for operator selection
+    // Use default crossovers if list is empty
+    std::vector<std::pair<CrossoverFunc, double>> active_crossovers = crossovers;
+    if (active_crossovers.empty()) {
+        active_crossovers.push_back({recombination_operator, 0.5});
+        active_crossovers.push_back({preservation_crossover, 0.5});
+    }
+
+    // Prepare distribution for crossover selection
+    std::vector<double> weights;
+    for (const auto& p : active_crossovers) {
+        weights.push_back(p.second);
+    }
+    std::discrete_distribution<> crossover_dist(weights.begin(), weights.end());
     std::random_device rd;
     std::mt19937 gen(rd());
-    std::uniform_int_distribution<> operator_choice(0, 1);
     std::uniform_int_distribution<> chance_out_of_100(0, 99);
 
     int total_nodes = problem.get_num_points();
@@ -132,14 +144,9 @@ std::vector<int> hybrid_evolutionary_algorithm(const TSPProblem& problem,
                 break;
             }
 
-            // Randomly choose recombination operator
-            if (operator_choice(gen) == 0) {
-                // Operator 1: Recombination operator (common nodes/edges + random fill)
-                offspring = recombination_operator(parent1, parent2, problem);
-            } else {
-                // Operator 2: Preservation crossover (filter + repair)
-                offspring = preservation_crossover(parent1, parent2, problem);
-            }
+            // Randomly choose recombination operator based on weights
+            int op_index = crossover_dist(gen);
+            offspring = active_crossovers[op_index].first(parent1, parent2, problem);
 
             // Apply mutation with 30% probability
             if (chance_out_of_100(gen) < 30) {

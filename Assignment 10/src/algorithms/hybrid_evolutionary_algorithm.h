@@ -2,7 +2,11 @@
 #define HYBRID_EVOLUTIONARY_ALGORITHM_H
 
 #include <vector>
+#include <functional>
+#include <utility>
 #include "../core/TSPProblem.h"
+
+using CrossoverFunc = std::function<std::vector<int>(const std::vector<int>&, const std::vector<int>&, const TSPProblem&)>;
 
 /**
  * @brief Implements a hybrid evolutionary algorithm for the TSP problem.
@@ -19,6 +23,7 @@
  * @param use_ls Whether to apply local search to offspring (always applied to initial population)
  * @param population_size Size of the elite population
  * @param iterations Output parameter for number of iterations performed
+ * @param crossovers List of crossover operators and their probabilities. If empty, defaults to 50/50 mix of recombination and preservation.
  * @return The best solution found
  */
 std::vector<int> hybrid_evolutionary_algorithm(const TSPProblem& problem, 
@@ -26,6 +31,7 @@ std::vector<int> hybrid_evolutionary_algorithm(const TSPProblem& problem,
                                                int time_limit_ms, 
                                                bool use_ls,
                                                int population_size,
-                                               int& iterations);
+                                               int& iterations,
+                                               const std::vector<std::pair<CrossoverFunc, double>>& crossovers = {});
 
 #endif // HYBRID_EVOLUTIONARY_ALGORITHM_H
