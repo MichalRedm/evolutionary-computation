@@ -91,7 +91,7 @@ std::vector<int> consensus_based_greedy_insertion(const std::vector<int>& parent
         int start_node = node;
         
         // BFS to find component structure
-        while(head < q.size()){
+        while(head < (int)q.size()){
             int u = q[head++];
             if (adj[u].size() == 1) start_node = u; // Found an endpoint
             for (int v : adj[u]) {
@@ -192,7 +192,7 @@ std::vector<int> consensus_based_greedy_insertion(const std::vector<int>& parent
     int target_size = (total_nodes + 1) / 2; // Round up
 
     // A. Greedy Insertion if we are too small
-    if (offspring.size() < target_size) {
+    if ((int)offspring.size() < target_size) {
         // Candidate pool: Union of parents (minus already selected)
         // If union is not enough, fall back to all nodes.
         std::set<int> current_selection(offspring.begin(), offspring.end());
@@ -207,7 +207,7 @@ std::vector<int> consensus_based_greedy_insertion(const std::vector<int>& parent
         }
         
         // If still not enough candidates (rare), add the rest of the world
-        if (candidates.size() + offspring.size() < target_size) {
+        if ((int)(candidates.size() + offspring.size()) < target_size) {
              for (int i = 0; i < total_nodes; ++i) {
                  if (!current_selection.count(i) && parent_union.find(i) == parent_union.end()) {
                      candidates.push_back(i);
@@ -215,7 +215,7 @@ std::vector<int> consensus_based_greedy_insertion(const std::vector<int>& parent
              }
         }
 
-        while (offspring.size() < target_size && !candidates.empty()) {
+        while ((int)offspring.size() < target_size && !candidates.empty()) {
             int best_cand_idx = -1;
             int best_pos = -1;
             double best_cost_increase = std::numeric_limits<double>::max();
@@ -253,8 +253,8 @@ std::vector<int> consensus_based_greedy_insertion(const std::vector<int>& parent
         }
     }
     // B. Pruning if we are too big (Parents shared > 50% nodes)
-    else if (offspring.size() > target_size) {
-        while (offspring.size() > target_size) {
+    else if ((int)offspring.size() > target_size) {
+        while ((int)offspring.size() > target_size) {
             int worst_idx = -1;
             double max_cost_reduction = -std::numeric_limits<double>::max();
 
