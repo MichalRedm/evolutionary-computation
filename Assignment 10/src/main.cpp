@@ -36,27 +36,15 @@ void process_instance(const std::string& filename, const std::string& instance_n
         random_solutions.push_back(generate_random_solution(data));
     }
 
-    struct LNSVariant {
-        std::string name;
-        bool use_ls;
+    StageTimer timer;
+    auto generate_solution = [&](int i, int& iterations) {
+        timer.start_stage("Hybrid EA");
+        std::vector<int> starting_solution = random_solutions[i];
+        std::vector<int> result = hybrid_evolutionary_algorithm(problem_instance, starting_solution, time_limit_ms, 20, iterations);
+        timer.end_stage();
+        return result;
     };
-
-    std::vector<LNSVariant> variants = {
-        // {"Hybrid EA (No LS)", false},
-        {"Hybrid EA (With LS)", true}
-    };
-
-    for (const auto& variant : variants) {
-        StageTimer timer;
-        auto generate_solution = [&](int i, int& iterations) {
-            timer.start_stage(variant.name);
-            std::vector<int> starting_solution = random_solutions[i];
-            std::vector<int> result = hybrid_evolutionary_algorithm(problem_instance, starting_solution, time_limit_ms, variant.use_ls, 20, iterations);
-            timer.end_stage();
-            return result;
-        };
-        run_and_print_results(variant.name, problem_instance, num_runs, generate_solution, results_json, instance_name, timer);
-    }
+    run_and_print_results("Hybrid EA", problem_instance, num_runs, generate_solution, results_json, instance_name, timer);
 }
 
 int main(int argc, char* argv[]) {

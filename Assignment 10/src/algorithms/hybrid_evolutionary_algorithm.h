@@ -29,7 +29,7 @@ using CrossoverFunc = std::function<std::vector<int>(const std::vector<int>&, co
 std::vector<int> hybrid_evolutionary_algorithm(const TSPProblem& problem, 
                                                const std::vector<int>& initial_solution, 
                                                int time_limit_ms, 
-                                               bool use_ls,
+                                               
                                                int population_size,
                                                int& iterations,
                                                const std::vector<std::pair<CrossoverFunc, double>>& crossovers = {});

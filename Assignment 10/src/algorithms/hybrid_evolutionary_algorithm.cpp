@@ -61,7 +61,7 @@ void mutate_solution(std::vector<int>& solution, int total_nodes, int mutation_c
 std::vector<int> hybrid_evolutionary_algorithm(const TSPProblem& problem, 
                                                const std::vector<int>& initial_solution, 
                                                int time_limit_ms, 
-                                               bool use_ls,
+                                               
                                                int population_size,
                                                int& iterations,
                                                const std::vector<std::pair<CrossoverFunc, double>>& crossovers) {
@@ -158,7 +158,7 @@ std::vector<int> hybrid_evolutionary_algorithm(const TSPProblem& problem,
             }
 
             // Apply local search to offspring if use_ls is true
-            if (use_ls) {
+            
                 // Randomly choose local search type
                 // Right now it has 100% chance of steepest as greedy did not perform well (at least at our time limit)
                 int randomNum = rand() % 100;
@@ -178,7 +178,7 @@ std::vector<int> hybrid_evolutionary_algorithm(const TSPProblem& problem,
                     search_type, 
                     dummy_timer
                 );
-            }
+            
         }
         else {
             // Perform large neighborhood search
