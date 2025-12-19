@@ -32,6 +32,8 @@ std::vector<int> hybrid_evolutionary_algorithm(const TSPProblem& problem,
                                                
                                                int population_size,
                                                int& iterations,
+                                               double mutation_probability = 0.3, 
+                                               double lns_probability = 0.0,
                                                const std::vector<std::pair<CrossoverFunc, double>>& crossovers = {});
 
 #endif // HYBRID_EVOLUTIONARY_ALGORITHM_H

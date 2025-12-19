@@ -61,9 +61,10 @@ void mutate_solution(std::vector<int>& solution, int total_nodes, int mutation_c
 std::vector<int> hybrid_evolutionary_algorithm(const TSPProblem& problem, 
                                                const std::vector<int>& initial_solution, 
                                                int time_limit_ms, 
-                                               
                                                int population_size,
                                                int& iterations,
+                                               double mutation_probability,
+                                               double lns_probability,
                                                const std::vector<std::pair<CrossoverFunc, double>>& crossovers) {
     auto start_time = std::chrono::steady_clock::now();
     iterations = 0;
@@ -126,10 +127,9 @@ std::vector<int> hybrid_evolutionary_algorithm(const TSPProblem& problem,
             break;
         }
 
+        // Check LNS probability
         std::vector<int> offspring;
-        // 80% chance to do crossover with operators + mutation + local search
-        // 20% chance for large neighborhood search
-        if (chance_out_of_100(gen) < 90) {
+        if (chance_out_of_100(gen) < (1.0 - lns_probability) * 100) {
             
             int tournament_selection_chance = 80;
             // Select two parents uniformly from the population
@@ -152,32 +152,30 @@ std::vector<int> hybrid_evolutionary_algorithm(const TSPProblem& problem,
             int op_index = crossover_dist(gen);
             offspring = active_crossovers[op_index].first(parent1, parent2, problem);
 
-            // Apply mutation with 30% probability
-            if (chance_out_of_100(gen) < 30) {
+            // Apply mutation based on probability
+            if (chance_out_of_100(gen) < mutation_probability * 100) {
                 mutate_solution(offspring, total_nodes, 10);
             }
 
-            // Apply local search to offspring if use_ls is true
-            
-                // Randomly choose local search type
-                // Right now it has 100% chance of steepest as greedy did not perform well (at least at our time limit)
-                int randomNum = rand() % 100;
-                SearchType search_type;
+            // Randomly choose local search type
+            // Right now it has 100% chance of steepest as greedy did not perform well (at least at our time limit)
+            int randomNum = rand() % 100;
+            SearchType search_type;
 
-                if (randomNum < 100){
-                    search_type = SearchType::STEEPEST;
-                }
-                else {
-                    search_type = SearchType::GREEDY;
-                }
+            if (randomNum < 100){
+                search_type = SearchType::STEEPEST;
+            }
+            else {
+                search_type = SearchType::GREEDY;
+            }
 
-                StageTimer dummy_timer;
-                offspring = local_search(
-                    const_cast<TSPProblem&>(problem), 
-                    offspring, 
-                    search_type, 
-                    dummy_timer
-                );
+            StageTimer dummy_timer;
+            offspring = local_search(
+                const_cast<TSPProblem&>(problem), 
+                offspring, 
+                search_type, 
+                dummy_timer
+            );
             
         }
         else {
