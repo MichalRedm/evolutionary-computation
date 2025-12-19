@@ -71,9 +71,9 @@ void process_instance(const std::string& filename, const std::string& instance_n
     // Define the grid dimensions
     // To add a new parameter, simply add a new GridDimension here!
     std::vector<GridDimension> grid_dimensions = {
-        {"mutation_probability", {0.1, 0.3}},
+        {"mutation_probability", {0.3}},
         {"lns_probability", {0.0}},
-        {"tournament_probability", {0.8}},
+        {"tournament_probability", {0.2, 0.5, 0.8}},
         {"adaptive_learning_rate", {0.01}},
         {"adaptive_min_weight", {0.25}},
         {"use_adaptive_crossover", {1.0}} // Using double 1.0 for true, 0.0 for false
@@ -128,7 +128,7 @@ void process_instance(const std::string& filename, const std::string& instance_n
                 iterations, 
                 mut_prob, 
                 lns_prob, 
-                tourn_prob, 
+                tourn_prob,
                 crossovers, 
                 use_adaptive,
                 lr,
