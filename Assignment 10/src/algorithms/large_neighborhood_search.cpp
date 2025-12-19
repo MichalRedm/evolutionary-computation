@@ -12,7 +12,6 @@ std::vector<int> large_neighborhood_search(
     int iteration_limit,
     bool use_local_search
 ) {
-    auto start_time = std::chrono::high_resolution_clock::now();
     
     std::vector<int> current_solution = starting_solution;
 

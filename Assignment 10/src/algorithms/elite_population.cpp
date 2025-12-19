@@ -14,7 +14,7 @@ ElitePopulation::ElitePopulation(int target_size,
     // This prevents infinite loops if the solution space is small or the generator is poor.
     const int MAX_ATTEMPTS = target_size * 5; 
 
-    while (population.size() < max_population_size && attempts < MAX_ATTEMPTS) {
+    while (static_cast<int>(population.size()) < max_population_size && attempts < MAX_ATTEMPTS) {
         std::vector<int> sol = solution_generator();
         double eval = evaluate_solution(sol, problem);
         
@@ -110,7 +110,7 @@ bool ElitePopulation::try_add_solution_internal(const std::vector<int>& solution
 
     // 1. Fast Fail: 
     // If population is full and new solution is worse than (or equal to) the worst current solution, reject.
-    if (population.size() >= max_population_size && eval >= population.back().evaluation - EPSILON) {
+    if (static_cast<int>(population.size()) >= max_population_size && eval >= population.back().evaluation - EPSILON) {
         return false;
     }
 
@@ -135,7 +135,7 @@ bool ElitePopulation::try_add_solution_internal(const std::vector<int>& solution
 
     // 5. Resize:
     // If we exceeded the max size, remove the last element (the worst one).
-    if (population.size() > max_population_size) {
+    if (static_cast<int>(population.size()) > max_population_size) {
         population.pop_back();
     }
 

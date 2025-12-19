@@ -133,10 +133,14 @@ std::vector<int> hybrid_evolutionary_algorithm(const TSPProblem& problem,
             
             int tournament_selection_chance = 80;
             // Select two parents uniformly from the population
-            auto [parent1, parent2] = population.get_parents();
+            std::pair<std::vector<int>, std::vector<int>> parents = population.get_parents();
+            std::vector<int> parent1 = parents.first;
+            std::vector<int> parent2 = parents.second;
             if (chance_out_of_100(gen) < tournament_selection_chance){
                 // Select two parents using the tournament selection
-                auto [parent1, parent2] = population.get_parents_tournament();
+                 parents = population.get_parents_tournament();
+                 parent1 = parents.first;
+                 parent2 = parents.second;
             }
 
             // If population is too small, break
@@ -178,12 +182,12 @@ std::vector<int> hybrid_evolutionary_algorithm(const TSPProblem& problem,
         }
         else {
             // Perform large neighborhood search
-            auto [parent1, parent2] = population.get_parents();
-            offspring = large_neighborhood_search(const_cast<TSPProblem&>(problem), parent1, 2, true);
+            std::pair<std::vector<int>, std::vector<int>> parents = population.get_parents();
+            offspring = large_neighborhood_search(const_cast<TSPProblem&>(problem), parents.first, 2, true);
         }
 
         // Try to add offspring to elite population
-        bool added = population.try_add_solution(offspring);
+        population.try_add_solution(offspring);
 
         // Check if we improved the best solution
         double current_best = population.get_best_solution().second;

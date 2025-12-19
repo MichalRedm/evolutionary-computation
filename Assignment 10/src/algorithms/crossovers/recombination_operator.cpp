@@ -89,7 +89,7 @@ std::vector<int> recombination_operator(const std::vector<int>& parent1, const s
         bool has_degree_1 = false;
         int degree_1_node = -1;
 
-        while (head < q.size()){
+        while (head < static_cast<int>(q.size())){
             int curr = q[head++];
             component.push_back(curr);
             if (adj[curr].size() == 1) {
@@ -117,7 +117,6 @@ std::vector<int> recombination_operator(const std::vector<int>& parent1, const s
         // We need to trace linearly.
         // It's easier to just greedily follow neighbors
         path.push_back(curr);
-        int prev = -1;
         
         // If it is a cycle (no degree 1), we treat it as a path by stopping when we come back or size matched
         // If it is a path, we go until end.
@@ -171,7 +170,7 @@ std::vector<int> recombination_operator(const std::vector<int>& parent1, const s
     // Add until target size
     int needed = target_size - (int)selected_nodes.size();
     if (needed > 0) {
-        for (int i = 0; i < needed && i < available_nodes.size(); ++i) {
+        for (int i = 0; i < needed && i < static_cast<int>(available_nodes.size()); ++i) {
             subpaths.push_back({available_nodes[i]});
         }
     }
