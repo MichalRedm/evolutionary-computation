@@ -15,7 +15,6 @@
 #include "algorithms/random_solution.h"
 #include "algorithms/hybrid_evolutionary_algorithm.h"
 #include "algorithms/crossovers/consensus_based_greedy_insertion.h"
-#include "algorithms/crossovers/recombination_operator.h"
 #include "algorithms/crossovers/preservation_crossover.h"
 
 using json = nlohmann::json;
@@ -40,51 +39,23 @@ void process_instance(const std::string& filename, const std::string& instance_n
     }
 
     StageTimer timer;
-    struct Config {
-        std::string name;
-        std::vector<std::pair<CrossoverFunc, double>> crossovers;
+    std::string method_name = "Hybrid EA (Pres+CBGI)";
+    
+    // Config: Preservation (0.5) + CBGI (0.5)
+    std::vector<std::pair<CrossoverFunc, double>> crossovers = {
+        {preservation_crossover, 0.5},
+        {consensus_based_greedy_insertion, 0.5}
     };
 
-    std::vector<Config> configurations;
-    std::vector<double> probs = {0.0, 0.25, 0.5, 0.75, 1.0};
-
-    // Grid search
-    for (double p : probs) {
-        double p_preservation = 1.0 - p;
-
-        // Configuration 1: CBGI vs Preservation
-        // Note: CBGI corresponds to consensus_based_greedy_insertion
-        std::vector<std::pair<CrossoverFunc, double>> crossovers_cbgi;
-        if (p > 0) crossovers_cbgi.push_back({consensus_based_greedy_insertion, p});
-        if (p_preservation > 0) crossovers_cbgi.push_back({preservation_crossover, p_preservation});
-        
-        std::string name_cbgi = "CBGI(" + std::to_string(p).substr(0,4) + ") + Pres(" + std::to_string(p_preservation).substr(0,4) + ")";
-        if (!crossovers_cbgi.empty()) {
-            configurations.push_back({name_cbgi, crossovers_cbgi});
-        }
-
-        // Configuration 2: Recombination vs Preservation
-        std::vector<std::pair<CrossoverFunc, double>> crossovers_rec;
-        if (p > 0) crossovers_rec.push_back({recombination_operator, p});
-        if (p_preservation > 0) crossovers_rec.push_back({preservation_crossover, p_preservation});
-        
-        std::string name_rec = "Rec(" + std::to_string(p).substr(0,4) + ") + Pres(" + std::to_string(p_preservation).substr(0,4) + ")";
-        if (!crossovers_rec.empty()) {
-            configurations.push_back({name_rec, crossovers_rec});
-        }
-    }
-
-    for (const auto& config : configurations) {
-        auto generate_solution = [&](int i, int& iterations) {
-            timer.start_stage(config.name);
-            std::vector<int> starting_solution = random_solutions[i];
-            // Uses defaults for mutation (0.3), LNS (0.0), and tournament (0.8)
-            std::vector<int> result = hybrid_evolutionary_algorithm(problem_instance, starting_solution, time_limit_ms, 20, iterations, 0.3, 0.0, 0.8, config.crossovers);
-            timer.end_stage();
-            return result;
-        };
-        run_and_print_results(config.name, problem_instance, num_runs, generate_solution, results_json, instance_name, timer);
-    }
+    auto generate_solution = [&](int i, int& iterations) {
+        timer.start_stage(method_name);
+        std::vector<int> starting_solution = random_solutions[i];
+        // Uses defaults for mutation (0.3), LNS (0.0), and tournament (0.8)
+        std::vector<int> result = hybrid_evolutionary_algorithm(problem_instance, starting_solution, time_limit_ms, 20, iterations, 0.3, 0.0, 0.8, crossovers);
+        timer.end_stage();
+        return result;
+    };
+    run_and_print_results(method_name, problem_instance, num_runs, generate_solution, results_json, instance_name, timer);
 }
 
 int main(int argc, char* argv[]) {
