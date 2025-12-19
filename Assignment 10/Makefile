@@ -11,13 +11,13 @@ CXXFLAGS = -std=c++11 -Wall -Isrc
 
 # Source directories
 # VPATH allows make to search for prerequisites in these directories
-VPATH = src src/core src/algorithms
+VPATH = src src/core src/algorithms src/algorithms/crossovers
 
 # Build directory
 BUILD_DIR = build
 
 # Find all .cpp files in the source directories
-SRCS = $(wildcard src/*.cpp) $(wildcard src/core/*.cpp) $(wildcard src/algorithms/*.cpp)
+SRCS = $(wildcard src/*.cpp) $(wildcard src/core/*.cpp) $(wildcard src/algorithms/*.cpp) $(wildcard src/algorithms/crossovers/*.cpp)
 
 # Generate object file names in the build directory
 OBJS = $(addprefix $(BUILD_DIR)/,$(notdir $(SRCS:.cpp=.o)))

@@ -2,7 +2,7 @@
 #define PRESERVATION_CROSSOVER_H
 
 #include <vector>
-#include "../core/TSPProblem.h"
+#include "../../core/TSPProblem.h"
 
 /**
  * @brief Operator 2: Preservation crossover operator.
