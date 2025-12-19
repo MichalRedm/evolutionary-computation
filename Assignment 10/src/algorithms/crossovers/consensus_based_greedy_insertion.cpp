@@ -6,21 +6,23 @@
 #include <limits>
 #include <iterator>
 
-// Helper to represent an undirected edge
-struct Edge {
-    int u, v;
-    bool operator<(const Edge& other) const {
-        if (u != other.u) return u < other.u;
-        return v < other.v;
-    }
-    bool operator==(const Edge& other) const {
-        return u == other.u && v == other.v;
-    }
-};
+namespace {
+    // Helper to represent an undirected edge
+    struct Edge {
+        int u, v;
+        bool operator<(const Edge& other) const {
+            if (u != other.u) return u < other.u;
+            return v < other.v;
+        }
+        bool operator==(const Edge& other) const {
+            return u == other.u && v == other.v;
+        }
+    };
 
-Edge make_edge(int u, int v) {
-    if (u < v) return {u, v};
-    return {v, u};
+    Edge make_edge(int u, int v) {
+        if (u < v) return {u, v};
+        return {v, u};
+    }
 }
 
 // Helper to calculate cost contribution of a node in a specific position

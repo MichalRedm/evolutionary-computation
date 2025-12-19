@@ -5,21 +5,23 @@
 #include <random>
 #include <cmath>
 
-// Helper to represent an undirected edge
-struct Edge {
-    int u, v;
-    bool operator<(const Edge& other) const {
-        if (u != other.u) return u < other.u;
-        return v < other.v;
-    }
-    bool operator==(const Edge& other) const {
-        return u == other.u && v == other.v;
-    }
-};
+namespace {
+    // Helper to represent an undirected edge
+    struct Edge {
+        int u, v;
+        bool operator<(const Edge& other) const {
+            if (u != other.u) return u < other.u;
+            return v < other.v;
+        }
+        bool operator==(const Edge& other) const {
+            return u == other.u && v == other.v;
+        }
+    };
 
-Edge make_edge(int u, int v) {
-    if (u < v) return {u, v};
-    return {v, u};
+    Edge make_edge(int u, int v) {
+        if (u < v) return {u, v};
+        return {v, u};
+    }
 }
 
 std::vector<int> recombination_operator(const std::vector<int>& parent1, const std::vector<int>& parent2, const TSPProblem& problem) {
