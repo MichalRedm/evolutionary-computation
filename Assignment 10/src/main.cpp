@@ -17,6 +17,7 @@
 #include "algorithms/hybrid_evolutionary_algorithm.h"
 #include "algorithms/crossovers/consensus_based_greedy_insertion.h"
 #include "algorithms/crossovers/preservation_crossover.h"
+#include "algorithms/crossovers/recombination_operator.h"
 
 #include <map>
 
@@ -73,11 +74,14 @@ void process_instance(const std::string& filename, const std::string& instance_n
     std::vector<GridDimension> grid_dimensions = {
         {"mutation_probability", {0.3}},
         {"lns_probability", {0.0}},
-        {"tournament_probability", {0.2, 0.5, 0.8}},
-        {"adaptive_learning_rate", {0.01}},
-        {"adaptive_min_weight", {0.25}},
+        {"tournament_probability", {0.0}},
+        {"adaptive_learning_rate", {0.03}},
+        {"adaptive_min_weight", {0.1}},
         {"use_adaptive_crossover", {1.0}},
-        {"mutation_strength", {10.0}} // Default 10
+        {"mutation_strength", {10.0}},
+        {"use_adaptive_mutation", {0.0}},
+        {"stagnation_step", {50.0}},
+        {"k_candidates", {-1.0}}
     };
 
     // Generate all configurations recursively
@@ -88,7 +92,8 @@ void process_instance(const std::string& filename, const std::string& instance_n
     // Fixed crossover configuration for this grid search
     std::vector<std::pair<CrossoverFunc, double>> crossovers = {
         {preservation_crossover, 0.5},
-        {consensus_based_greedy_insertion, 0.5}
+        {recombination_operator, 0.25},
+        {consensus_based_greedy_insertion, 0.25}
     };
 
     // Iterate over all generated configurations
@@ -121,6 +126,9 @@ void process_instance(const std::string& filename, const std::string& instance_n
             double lr = config.at("adaptive_learning_rate");
             double min_w = config.at("adaptive_min_weight");
             int mut_str = (int)config.at("mutation_strength");
+            bool use_adaptive_mut = (config.at("use_adaptive_mutation") > 0.5);
+            int stag_step = (int)config.at("stagnation_step");
+            int k = (int)config.at("k_candidates");
 
             std::vector<int> result = hybrid_evolutionary_algorithm(
                 problem_instance, 
@@ -135,7 +143,10 @@ void process_instance(const std::string& filename, const std::string& instance_n
                 use_adaptive,
                 lr,
                 min_w,
-                mut_str
+                mut_str,
+                use_adaptive_mut,
+                stag_step,
+                k
             );
             timer.end_stage();
             return result;

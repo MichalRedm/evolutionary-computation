@@ -39,6 +39,9 @@ std::vector<int> hybrid_evolutionary_algorithm(const TSPProblem& problem,
                                                bool use_adaptive_crossover = true,
                                                double adaptive_learning_rate = 0.01,
                                                double adaptive_min_weight = 0.25,
-                                               int mutation_strength = 10);
+                                               int mutation_strength = 10,
+                                               bool use_adaptive_mutation = false,
+                                               int stagnation_step = 20,
+                                               int k_candidates = -1);
 
 #endif // HYBRID_EVOLUTIONARY_ALGORITHM_H

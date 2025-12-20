@@ -25,6 +25,7 @@ enum class NeighbourhoodType {
 
 std::vector<int> local_search(TSPProblem &problem_instance,
                                      std::vector<int> starting_solution,
-                                     SearchType T, StageTimer &timer);
+                                     SearchType T, StageTimer &timer,
+                                     int k_candidates = -1);
 
 #endif // LOCAL_SEARCH_H

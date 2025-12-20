@@ -30,6 +30,12 @@ std::vector<int> getNotInSolution(int size, const std::vector<int>& solution) {
 void mutate_solution(std::vector<int>& solution, int total_nodes, int mutation_count = 10) {
     int solution_size = solution.size();
     
+    // Safety check: ensure mutation count doesn't exceed a reasonable threshold relative to solution size
+    // to prevent the mutation from completely randomizing the solution.
+    if (mutation_count > solution_size / 2 && solution_size > 2) {
+        mutation_count = solution_size / 2;
+    }
+
     for (int i = 0; i < mutation_count; ++i) {
         int randomNum = rand() % 100;
         if (randomNum < 40) {
@@ -70,7 +76,10 @@ std::vector<int> hybrid_evolutionary_algorithm(const TSPProblem& problem,
                                                bool use_adaptive_crossover,
                                                double adaptive_learning_rate,
                                                double adaptive_min_weight,
-                                               int mutation_strength) {
+                                               int mutation_strength,
+                                               bool use_adaptive_mutation,
+                                               int stagnation_step,
+                                               int k_candidates) {
     auto start_time = std::chrono::steady_clock::now();
     iterations = 0;
 
@@ -103,7 +112,8 @@ std::vector<int> hybrid_evolutionary_algorithm(const TSPProblem& problem,
             const_cast<TSPProblem&>(problem), 
             random_sol, 
             SearchType::GREEDY, 
-            dummy_timer
+            dummy_timer,
+            k_candidates
         );
         
         return improved_sol;
@@ -114,6 +124,10 @@ std::vector<int> hybrid_evolutionary_algorithm(const TSPProblem& problem,
 
     // Track iterations without improvement for termination
     const int MAX_ITERATIONS_NO_IMPROVEMENT = 1000;
+    
+    // Define how often (in iterations) we increase mutation strength during stagnation
+    // const int STAGNATION_MUTATION_STEP = 20;  // Now passed as parameter 
+
     int iterations_without_improvement = 0;
     double best_known_evaluation = population.get_best_solution().second;
 
@@ -131,6 +145,23 @@ std::vector<int> hybrid_evolutionary_algorithm(const TSPProblem& problem,
         if (iterations_without_improvement >= MAX_ITERATIONS_NO_IMPROVEMENT) {
             break;
         }
+
+        // --- Adaptive Mutation Logic ---
+        int current_mutation_strength = mutation_strength;
+        
+        if (use_adaptive_mutation) {
+            // Calculate dynamic mutation strength based on stagnation.
+            // We start with the base 'mutation_strength' and add 1 extra move 
+            // for every 'stagnation_step' iterations without improvement.
+            current_mutation_strength = mutation_strength + (iterations_without_improvement / stagnation_step);
+            
+            // Optional: Ensure it doesn't grow indefinitely (handled partially inside mutate_solution via size check,
+            // but good to cap here too to avoid huge loops).
+            if (current_mutation_strength > total_nodes) {
+                current_mutation_strength = total_nodes;
+            }
+        }
+        // -------------------------------
 
         std::vector<int> offspring;
         int op_index = -1; // Track which crossover operator was used (-1 if LNS or none)
@@ -163,7 +194,8 @@ std::vector<int> hybrid_evolutionary_algorithm(const TSPProblem& problem,
 
             // Apply mutation based on probability
             if (chance_out_of_100(gen) < mutation_probability * 100) {
-                mutate_solution(offspring, total_nodes, mutation_strength);
+                // Pass the DETERMINED strength (dynamic or fixed)
+                mutate_solution(offspring, total_nodes, current_mutation_strength);
             }
 
             // Randomly choose local search type
@@ -183,7 +215,8 @@ std::vector<int> hybrid_evolutionary_algorithm(const TSPProblem& problem,
                 const_cast<TSPProblem&>(problem), 
                 offspring, 
                 search_type, 
-                dummy_timer
+                dummy_timer,
+                k_candidates
             );
             
         }
@@ -225,7 +258,7 @@ std::vector<int> hybrid_evolutionary_algorithm(const TSPProblem& problem,
         double current_best = population.get_best_solution().second;
         if (current_best < best_known_evaluation - 1e-9) {
             best_known_evaluation = current_best;
-            iterations_without_improvement = 0;
+            iterations_without_improvement = 0; // This resets the mutation strength back to base
 
             // std::cout<<"iteration: "<<iterations<<" best_score: "<<current_best<<"\n";
         } else {
