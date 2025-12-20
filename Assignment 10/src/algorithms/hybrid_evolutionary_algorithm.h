@@ -42,6 +42,7 @@ std::vector<int> hybrid_evolutionary_algorithm(const TSPProblem& problem,
                                                int mutation_strength = 10,
                                                bool use_adaptive_mutation = false,
                                                int stagnation_step = 20,
-                                               int k_candidates = -1);
+                                               int k_candidates = -1,
+                                               int max_stagnation_iterations = 1000);
 
 #endif // HYBRID_EVOLUTIONARY_ALGORITHM_H

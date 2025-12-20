@@ -79,7 +79,8 @@ std::vector<int> hybrid_evolutionary_algorithm(const TSPProblem& problem,
                                                int mutation_strength,
                                                bool use_adaptive_mutation,
                                                int stagnation_step,
-                                               int k_candidates) {
+                                               int k_candidates,
+                                               int max_stagnation_iterations) {
     auto start_time = std::chrono::steady_clock::now();
     iterations = 0;
 
@@ -123,7 +124,7 @@ std::vector<int> hybrid_evolutionary_algorithm(const TSPProblem& problem,
     ElitePopulation population(population_size, solution_generator, problem);
 
     // Track iterations without improvement for termination
-    const int MAX_ITERATIONS_NO_IMPROVEMENT = 1000;
+    // const int MAX_ITERATIONS_NO_IMPROVEMENT = 3000; // Removed, now using parameter
     
     // Define how often (in iterations) we increase mutation strength during stagnation
     // const int STAGNATION_MUTATION_STEP = 20;  // Now passed as parameter 
@@ -142,7 +143,7 @@ std::vector<int> hybrid_evolutionary_algorithm(const TSPProblem& problem,
         }
 
         // Check stagnation
-        if (iterations_without_improvement >= MAX_ITERATIONS_NO_IMPROVEMENT) {
+        if (max_stagnation_iterations != -1 && iterations_without_improvement >= max_stagnation_iterations) {
             break;
         }
 
@@ -231,13 +232,23 @@ std::vector<int> hybrid_evolutionary_algorithm(const TSPProblem& problem,
 
         // Adaptive Probability Update Logic
         if (use_adaptive_crossover && op_index != -1) {
+            // Current weight represents the probability of selection
+            double current_prob = weights[op_index];
 
             if (added_to_population) {
                 // Reward: Increase probability
-                weights[op_index] *= (1.0 + adaptive_learning_rate);
+                // Logic: "slightly stronger for less probable operators"
+                // If prob is low (e.g., 0.1), boost factor is high (1.9).
+                // If prob is high (e.g., 0.9), boost factor is low (1.1).
+                double boost_factor = 1.0 + (1.0 - current_prob);
+                weights[op_index] *= (1.0 + adaptive_learning_rate * boost_factor);
             } else {
                 // Penalize: Decrease probability
-                weights[op_index] *= (1.0 - adaptive_learning_rate);
+                // Logic: "slightly stronger for more probable operators"
+                // If prob is high (e.g., 0.9), penalty factor is high (1.9).
+                // If prob is low (e.g., 0.1), penalty factor is low (1.1).
+                double penalty_factor = 1.0 + current_prob;
+                weights[op_index] *= (1.0 - adaptive_learning_rate * penalty_factor);
             }
 
             // Ensure we don't drop below minimum weight

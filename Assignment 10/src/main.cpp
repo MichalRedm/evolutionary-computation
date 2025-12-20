@@ -79,9 +79,10 @@ void process_instance(const std::string& filename, const std::string& instance_n
         {"adaptive_min_weight", {0.1}},
         {"use_adaptive_crossover", {1.0}},
         {"mutation_strength", {10.0}},
-        {"use_adaptive_mutation", {0.0}},
-        {"stagnation_step", {50.0}},
-        {"k_candidates", {-1.0}}
+        {"use_adaptive_mutation", {1.0}},
+        {"stagnation_step", {100.0}},
+        {"k_candidates", {-1.0}},
+        {"max_stagnation_iterations", {3000}}
     };
 
     // Generate all configurations recursively
@@ -129,6 +130,7 @@ void process_instance(const std::string& filename, const std::string& instance_n
             bool use_adaptive_mut = (config.at("use_adaptive_mutation") > 0.5);
             int stag_step = (int)config.at("stagnation_step");
             int k = (int)config.at("k_candidates");
+            int max_stag_iter = (int)config.at("max_stagnation_iterations");
 
             std::vector<int> result = hybrid_evolutionary_algorithm(
                 problem_instance, 
@@ -146,7 +148,8 @@ void process_instance(const std::string& filename, const std::string& instance_n
                 mut_str,
                 use_adaptive_mut,
                 stag_step,
-                k
+                k,
+                max_stag_iter
             );
             timer.end_stage();
             return result;
