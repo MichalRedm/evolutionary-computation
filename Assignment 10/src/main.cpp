@@ -15,11 +15,9 @@
 
 #include "algorithms/random_solution.h"
 #include "algorithms/hybrid_evolutionary_algorithm.h"
-#include "algorithms/crossovers/consensus_based_greedy_insertion.h"
 #include "algorithms/crossovers/preservation_crossover.h"
 #include "algorithms/crossovers/recombination_operator.h"
 #include "algorithms/crossovers/greedy_edge_crossover.h"
-#include "algorithms/crossovers/cost_priority_crossover.h"
 
 #include <map>
 
@@ -62,7 +60,7 @@ void process_instance(const std::string& filename, const std::string& instance_n
     }
 
     TSPProblem problem_instance = TSPProblem(data);
-    const int num_runs = 10; // Changed to 20 as per assignment
+    const int num_runs = 20; // Changed to 20 as per assignment
 
     std::vector<std::vector<int>> random_solutions = {};
     for (int i = 0; i < num_runs; ++i) {
@@ -74,7 +72,7 @@ void process_instance(const std::string& filename, const std::string& instance_n
     // Define the grid dimensions
     // To add a new parameter, simply add a new GridDimension here!
     std::vector<GridDimension> grid_dimensions = {
-        {"mutation_probability", {0.3}},
+        {"mutation_probability", {0.6}},
         {"lns_probability", {0.0}},
         {"tournament_probability", {0.0}},
         {"adaptive_learning_rate", {0.03}},
@@ -94,10 +92,10 @@ void process_instance(const std::string& filename, const std::string& instance_n
 
     // Fixed crossover configuration for this grid search
     std::vector<std::pair<CrossoverFunc, double>> crossovers = {
-        {preservation_crossover, 0.25},
-        {recombination_operator, 0.25},
-        {greedy_edge_crossover, 0.25},
-        {cost_priority_crossover, 0.25},
+        {preservation_crossover, 0.3},
+        {recombination_operator, 0.3},
+        {greedy_edge_crossover, 0.4},
+        // {cost_priority_crossover, 0.25},
         // {consensus_based_greedy_insertion, 0.25}
     };
 
