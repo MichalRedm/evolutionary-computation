@@ -18,6 +18,8 @@
 #include "algorithms/crossovers/consensus_based_greedy_insertion.h"
 #include "algorithms/crossovers/preservation_crossover.h"
 #include "algorithms/crossovers/recombination_operator.h"
+#include "algorithms/crossovers/greedy_edge_crossover.h"
+#include "algorithms/crossovers/cost_priority_crossover.h"
 
 #include <map>
 
@@ -77,12 +79,12 @@ void process_instance(const std::string& filename, const std::string& instance_n
         {"tournament_probability", {0.0}},
         {"adaptive_learning_rate", {0.03}},
         {"adaptive_min_weight", {0.1}},
-        {"use_adaptive_crossover", {1.0}},
+        {"use_adaptive_crossover", {0.0}},
         {"mutation_strength", {10.0}},
-        {"use_adaptive_mutation", {1.0}},
+        {"use_adaptive_mutation", {0.0}},
         {"stagnation_step", {100.0}},
         {"k_candidates", {-1.0}},
-        {"max_stagnation_iterations", {3000}}
+        {"max_stagnation_iterations", {1000}}
     };
 
     // Generate all configurations recursively
@@ -92,9 +94,11 @@ void process_instance(const std::string& filename, const std::string& instance_n
 
     // Fixed crossover configuration for this grid search
     std::vector<std::pair<CrossoverFunc, double>> crossovers = {
-        {preservation_crossover, 0.5},
+        {preservation_crossover, 0.25},
         {recombination_operator, 0.25},
-        {consensus_based_greedy_insertion, 0.25}
+        {greedy_edge_crossover, 0.25},
+        {cost_priority_crossover, 0.25},
+        // {consensus_based_greedy_insertion, 0.25}
     };
 
     // Iterate over all generated configurations
