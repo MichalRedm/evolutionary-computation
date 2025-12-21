@@ -14,6 +14,7 @@
 #include "core/experiment_runner.h"
 
 #include "algorithms/constructors/random_solution.h"
+#include "algorithms/constructors/greedy_weighted_regret_constructor.h"
 #include "algorithms/hybrid_evolutionary_algorithm.h"
 #include "algorithms/crossovers/preservation_crossover.h"
 #include "algorithms/crossovers/recombination_operator.h"
@@ -62,11 +63,6 @@ void process_instance(const std::string& filename, const std::string& instance_n
     TSPProblem problem_instance = TSPProblem(data);
     const int num_runs = 20; // Changed to 20 as per assignment
 
-    std::vector<std::vector<int>> random_solutions = {};
-    for (int i = 0; i < num_runs; ++i) {
-        random_solutions.push_back(generate_random_solution(data));
-    }
-
     StageTimer timer;
     
     // Define the grid dimensions
@@ -82,7 +78,9 @@ void process_instance(const std::string& filename, const std::string& instance_n
         {"use_adaptive_mutation", {0.0}},
         {"stagnation_step", {100.0}},
         {"k_candidates", {-1.0}},
-        {"max_stagnation_iterations", {-1.0}}
+        {"max_stagnation_iterations", {-1.0}},
+        {"initial_solution_builder", {0.0}}, // 0: random, 1: greedy_weighted_regret
+        {"regret_k_candidates", {3.0}}     // for greedy regret
     };
 
     // Generate all configurations recursively
@@ -119,7 +117,6 @@ void process_instance(const std::string& filename, const std::string& instance_n
 
         auto generate_solution = [&](int i, int& iterations) {
             timer.start_stage(method_name);
-            std::vector<int> starting_solution = random_solutions[i];
             
             // Extract parameters from map
             double mut_prob = config.at("mutation_probability");
@@ -133,10 +130,26 @@ void process_instance(const std::string& filename, const std::string& instance_n
             int stag_step = (int)config.at("stagnation_step");
             int k = (int)config.at("k_candidates");
             int max_stag_iter = (int)config.at("max_stagnation_iterations");
+            
+            int builder_type = (int)config.at("initial_solution_builder");
+            int regret_k = (int)config.at("regret_k_candidates");
+
+            SolutionConstructor constructor;
+            if (builder_type == 1) {
+                // Greedy Weighted Regret
+                constructor = [regret_k](const TSPProblem& p) {
+                    return greedy_weighted_regret_constructor(p, regret_k, {});
+                };
+            } else {
+                // Random (Default)
+                constructor = [](const TSPProblem& p) {
+                    return generate_random_solution(p.get_points());
+                };
+            }
 
             std::vector<int> result = hybrid_evolutionary_algorithm(
                 problem_instance, 
-                starting_solution, 
+                constructor, 
                 time_limit_ms, 
                 20, // population_size
                 iterations, 

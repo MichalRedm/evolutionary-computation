@@ -5,7 +5,7 @@
 #include <cstdlib>
 
 #include "elite_population.h"
-#include "constructors/random_solution.h"
+// #include "constructors/random_solution.h" // Logic removed as it is now passed as parameter
 #include "local_search.h"
 #include "crossovers/recombination_operator.h"
 #include "crossovers/preservation_crossover.h"
@@ -65,7 +65,7 @@ void mutate_solution(std::vector<int>& solution, int total_nodes, int mutation_c
 }
 
 std::vector<int> hybrid_evolutionary_algorithm(const TSPProblem& problem, 
-                                               const std::vector<int>& initial_solution, 
+                                               SolutionConstructor solution_constructor, 
                                                int time_limit_ms, 
                                                int population_size,
                                                int& iterations,
@@ -105,13 +105,13 @@ std::vector<int> hybrid_evolutionary_algorithm(const TSPProblem& problem,
 
     // Create a lambda that generates random solutions with local search applied
     auto solution_generator = [&]() {
-        std::vector<int> random_sol = generate_random_solution(problem.get_points());
+        std::vector<int> constructed_sol = solution_constructor(problem);
         
         // Apply local search to initial random solutions
         StageTimer dummy_timer;
         std::vector<int> improved_sol = local_search(
             const_cast<TSPProblem&>(problem), 
-            random_sol, 
+            constructed_sol, 
             SearchType::GREEDY, 
             dummy_timer,
             k_candidates
