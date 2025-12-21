@@ -79,8 +79,8 @@ void process_instance(const std::string& filename, const std::string& instance_n
         {"stagnation_step", {100.0}},
         {"k_candidates", {-1.0}},
         {"max_stagnation_iterations", {-1.0}},
-        {"initial_solution_builder", {0.0}}, // 0: random, 1: greedy_weighted_regret
-        {"regret_k_candidates", {3.0}}     // for greedy regret
+        {"initial_solution_builder", {1.0}}, // 0: random, 1: greedy_weighted_regret
+        {"regret_k_candidates", {5.0}}     // for greedy regret
     };
 
     // Generate all configurations recursively
@@ -90,9 +90,9 @@ void process_instance(const std::string& filename, const std::string& instance_n
 
     // Fixed crossover configuration for this grid search
     std::vector<std::pair<CrossoverFunc, double>> crossovers = {
-        {assymetric_repair_crossover, 0.3},
-        {stochastic_backbone_crossover, 0.3},
-        {greedy_edge_crossover, 0.4},
+        {assymetric_repair_crossover, 0.35},
+        {stochastic_backbone_crossover, 0.35},
+        {greedy_edge_crossover, 0.3},
         // {cost_priority_crossover, 0.25},
         // {consensus_based_greedy_insertion, 0.25}
     };
