@@ -5,7 +5,7 @@
 #include <cstdlib>
 
 #include "elite_population.h"
-#include "random_solution.h"
+#include "constructors/random_solution.h"
 #include "local_search.h"
 #include "crossovers/recombination_operator.h"
 #include "crossovers/preservation_crossover.h"

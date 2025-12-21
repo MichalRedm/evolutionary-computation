@@ -13,7 +13,7 @@
 #include "core/TSPProblem.h"
 #include "core/experiment_runner.h"
 
-#include "algorithms/random_solution.h"
+#include "algorithms/constructors/random_solution.h"
 #include "algorithms/hybrid_evolutionary_algorithm.h"
 #include "algorithms/crossovers/preservation_crossover.h"
 #include "algorithms/crossovers/recombination_operator.h"
