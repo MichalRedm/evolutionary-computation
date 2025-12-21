@@ -82,7 +82,7 @@ void process_instance(const std::string& filename, const std::string& instance_n
         {"use_adaptive_mutation", {0.0}},
         {"stagnation_step", {100.0}},
         {"k_candidates", {-1.0}},
-        {"max_stagnation_iterations", {1000}}
+        {"max_stagnation_iterations", {-1.0}}
     };
 
     // Generate all configurations recursively
