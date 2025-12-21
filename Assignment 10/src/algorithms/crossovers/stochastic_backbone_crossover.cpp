@@ -1,4 +1,4 @@
-#include "recombination_operator.h"
+#include "stochastic_backbone_crossover.h"
 #include <algorithm>
 #include <set>
 #include <map>
@@ -24,7 +24,7 @@ namespace {
     }
 }
 
-std::vector<int> recombination_operator(const std::vector<int>& parent1, const std::vector<int>& parent2, const TSPProblem& problem) {
+std::vector<int> stochastic_backbone_crossover(const std::vector<int>& parent1, const std::vector<int>& parent2, const TSPProblem& problem) {
     // 1. Identify common nodes
     std::set<int> p1_nodes(parent1.begin(), parent1.end());
     std::set<int> p2_nodes(parent2.begin(), parent2.end());

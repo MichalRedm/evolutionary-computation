@@ -16,8 +16,8 @@
 #include "algorithms/constructors/random_solution.h"
 #include "algorithms/constructors/greedy_weighted_regret_constructor.h"
 #include "algorithms/hybrid_evolutionary_algorithm.h"
-#include "algorithms/crossovers/preservation_crossover.h"
-#include "algorithms/crossovers/recombination_operator.h"
+#include "algorithms/crossovers/assymetric_repair_crossover.h"
+#include "algorithms/crossovers/stochastic_backbone_crossover.h"
 #include "algorithms/crossovers/greedy_edge_crossover.h"
 
 #include <map>
@@ -90,8 +90,8 @@ void process_instance(const std::string& filename, const std::string& instance_n
 
     // Fixed crossover configuration for this grid search
     std::vector<std::pair<CrossoverFunc, double>> crossovers = {
-        {preservation_crossover, 0.3},
-        {recombination_operator, 0.3},
+        {assymetric_repair_crossover, 0.3},
+        {stochastic_backbone_crossover, 0.3},
         {greedy_edge_crossover, 0.4},
         // {cost_priority_crossover, 0.25},
         // {consensus_based_greedy_insertion, 0.25}

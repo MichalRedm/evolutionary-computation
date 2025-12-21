@@ -7,8 +7,8 @@
 #include "elite_population.h"
 // #include "constructors/random_solution.h" // Logic removed as it is now passed as parameter
 #include "local_search.h"
-#include "crossovers/recombination_operator.h"
-#include "crossovers/preservation_crossover.h"
+#include "crossovers/stochastic_backbone_crossover.h"
+#include "crossovers/assymetric_repair_crossover.h"
 #include "intra_edge_exchange.h"
 #include "../core/stagetimer.h"
 #include "large_neighborhood_search.h"
@@ -87,8 +87,8 @@ std::vector<int> hybrid_evolutionary_algorithm(const TSPProblem& problem,
     // Use default crossovers if list is empty
     std::vector<std::pair<CrossoverFunc, double>> active_crossovers = crossovers;
     if (active_crossovers.empty()) {
-        active_crossovers.push_back({recombination_operator, 0.5});
-        active_crossovers.push_back({preservation_crossover, 0.5});
+        active_crossovers.push_back({stochastic_backbone_crossover, 0.5});
+        active_crossovers.push_back({assymetric_repair_crossover, 0.5});
     }
 
     // Initialize weights for crossover selection
